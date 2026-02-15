@@ -1,6 +1,6 @@
 {
   "name": "denx-b/b24-rest",
-  "description": "Bitrix24 REST wrapper for mass-market and single-app integrations",
+  "description": "Bitrix24 REST wrapper library",
   "type": "library",
   "license": "proprietary",
   "require": {
