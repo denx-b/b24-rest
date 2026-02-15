@@ -5,12 +5,14 @@ namespace B24Rest\Rest;
 use B24Rest\Bridge\Bitrix24Gateway;
 use B24Rest\Rest\Entity\CompanyService;
 use B24Rest\Rest\Entity\ContactService;
+use B24Rest\Rest\Entity\CurrencyService;
 use B24Rest\Rest\Entity\DealCategoryService;
 use B24Rest\Rest\Entity\DealCategoryStageService;
 use B24Rest\Rest\Entity\DealService;
 use B24Rest\Rest\Entity\DepartmentService;
 use B24Rest\Rest\Entity\InvoiceService;
 use B24Rest\Rest\Entity\LeadService;
+use B24Rest\Rest\Entity\MeasureService;
 use B24Rest\Rest\Entity\PriceTypeService;
 use B24Rest\Rest\Entity\QuoteService;
 use B24Rest\Rest\Entity\SmartProcessItemService;
@@ -29,6 +31,8 @@ class Bitrix24RestFactory
     private ?QuoteService $quoteService = null;
     private ?TaskService $taskService = null;
     private ?PriceTypeService $priceTypeService = null;
+    private ?MeasureService $measureService = null;
+    private ?CurrencyService $currencyService = null;
     /** @var array<int, SmartProcessItemService> */
     private array $smartProcessItemServices = [];
 
@@ -142,6 +146,24 @@ class Bitrix24RestFactory
         }
 
         return $this->priceTypeService;
+    }
+
+    public function measures(): MeasureService
+    {
+        if ($this->measureService === null) {
+            $this->measureService = new MeasureService();
+        }
+
+        return $this->measureService;
+    }
+
+    public function currencies(): CurrencyService
+    {
+        if ($this->currencyService === null) {
+            $this->currencyService = new CurrencyService();
+        }
+
+        return $this->currencyService;
     }
 
     public function smartItems(int $entityTypeId): SmartProcessItemService

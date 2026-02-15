@@ -518,3 +518,105 @@ $deletedPriceType = $b24->priceTypes()->delete(2);
 // Получить доступные поля типа цены
 $priceTypeFields = $b24->priceTypes()->getFields();
 ```
+
+## Bitrix24 REST: Единицы измерения (примеры)
+
+```php
+// Список единиц измерения (page = 1, фиксированный размер страницы = 50)
+$measuresPage = $b24->measures()->list([
+    'select' => ['id', 'code', 'symbolIntl'],
+], 1);
+```
+
+```php
+// Все единицы измерения (start=-1 + внутренний курсор по <id)
+$allMeasures = $b24->measures()->all([
+    'select' => ['id', 'code', 'symbolIntl'],
+]);
+```
+
+```php
+// Единица измерения по ID
+$measure = $b24->measures()->getById(6);
+```
+
+```php
+// Добавить единицу измерения
+$createdMeasure = $b24->measures()->add([
+    'code' => 800,
+    'measureTitle' => 'Комплект',
+    'symbolLetterIntl' => 'set',
+    'symbolIntl' => 'pcs',
+]);
+```
+
+```php
+// Обновить единицу измерения
+$updatedMeasure = $b24->measures()->update(6, [
+    'measureTitle' => 'Комплект v2',
+    'symbolIntl' => 'set.',
+]);
+```
+
+```php
+// Удалить единицу измерения
+$deletedMeasure = $b24->measures()->delete(6);
+```
+
+```php
+// Получить доступные поля единиц измерения
+$measureFields = $b24->measures()->getFields();
+```
+
+## Bitrix24 REST: Валюты (примеры)
+
+```php
+// Список валют (page = 1, фиксированный размер страницы = 50)
+$currenciesPage = $b24->currencies()->list([
+    'order' => ['currency' => 'DESC'],
+], 1);
+```
+
+```php
+// Все валюты (первый запрос с start=-1)
+$allCurrencies = $b24->currencies()->all([
+    'order' => ['currency' => 'DESC'],
+]);
+```
+
+```php
+// Валюта по коду
+$currency = $b24->currencies()->getById('USD');
+```
+
+```php
+// Добавить валюту
+$createdCurrency = $b24->currencies()->add([
+    'CURRENCY' => 'CNY',
+    'AMOUNT' => 1,
+    'AMOUNT_CNT' => 1,
+    'SORT' => 100,
+]);
+```
+
+```php
+// Обновить валюту
+$updatedCurrency = $b24->currencies()->update('CNY', [
+    'AMOUNT' => 15.3449,
+]);
+```
+
+```php
+// Удалить валюту
+$deletedCurrency = $b24->currencies()->delete('IDR');
+```
+
+```php
+// Получить базовую валюту
+$baseCurrency = $b24->currencies()->baseGet();
+```
+
+```php
+// Установить базовую валюту
+$setBaseCurrency = $b24->currencies()->baseSet('RUB');
+```

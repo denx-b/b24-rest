@@ -1,0 +1,187 @@
+<?php
+
+namespace B24Rest\Rest\Entity;
+
+use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddOperationInterface;
+use B24Rest\Rest\Contract\AllOperationInterface;
+use B24Rest\Rest\Contract\DeleteOperationInterface;
+use B24Rest\Rest\Contract\GetByIdOperationInterface;
+use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateOperationInterface;
+use RuntimeException;
+
+class CurrencyService extends AbstractRestService implements
+    ListOperationInterface,
+    AllOperationInterface,
+    GetByIdOperationInterface,
+    AddOperationInterface,
+    UpdateOperationInterface,
+    DeleteOperationInterface
+{
+    private const METHOD_ADD = 'crm.currency.add';
+    private const METHOD_UPDATE = 'crm.currency.update';
+    private const METHOD_GET = 'crm.currency.get';
+    private const METHOD_LIST = 'crm.currency.list';
+    private const METHOD_DELETE = 'crm.currency.delete';
+    private const METHOD_BASE_GET = 'crm.currency.base.get';
+    private const METHOD_BASE_SET = 'crm.currency.base.set';
+    private const MAX_ALL_ITERATIONS = 100000;
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-list.html
+     */
+    public function list(array $params = [], int $page = 1): array
+    {
+        $this->ensurePositivePage($page);
+
+        $request = $params;
+        $order = $this->normalizeUserOrder($request['order'] ?? null);
+        $request['order'] = ($order !== []) ? $order : ['currency' => 'DESC'];
+        $request['start'] = ($page - 1) * self::PAGE_SIZE;
+
+        $response = $this->call(self::METHOD_LIST, $request);
+        $items = $this->normalizeListFromResult($response);
+        $total = $this->extractTotalCount($response);
+        $next = $this->extractNextOffset($response);
+        $totalPages = ($total !== null) ? (int) ceil($total / self::PAGE_SIZE) : null;
+        $hasNext = ($next !== null) || ($totalPages !== null && $page < $totalPages);
+
+        return [
+            'items' => $items,
+            'pagination' => [
+                'page' => $page,
+                'pageSize' => self::PAGE_SIZE,
+                'total' => $total,
+                'totalPages' => $totalPages,
+                'hasNext' => $hasNext,
+            ],
+        ];
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-list.html
+     * @see https://apidocs.bitrix24.ru/settings/performance/huge-data.html
+     */
+    public function all(array $params = []): array
+    {
+        $requestBase = $params;
+        unset($requestBase['start'], $requestBase['START']);
+
+        $order = $this->normalizeUserOrder($requestBase['order'] ?? null);
+        $requestBase['order'] = ($order !== []) ? $order : ['currency' => 'DESC'];
+
+        $request = $requestBase;
+        $request['start'] = -1;
+
+        $response = $this->call(self::METHOD_LIST, $request);
+        $items = $this->normalizeListFromResult($response);
+        $next = $this->extractNextOffset($response);
+        if ($next === null) {
+            return $items;
+        }
+
+        $lastStart = -1;
+        $iterations = 0;
+        while ($next !== null) {
+            $iterations++;
+            if ($iterations > self::MAX_ALL_ITERATIONS) {
+                throw new RuntimeException('The all() loop exceeded safe iteration limit.');
+            }
+
+            if ($next <= $lastStart) {
+                throw new RuntimeException('The all() cursor did not advance. Stop to avoid infinite loop.');
+            }
+
+            $request = $requestBase;
+            $request['start'] = $next;
+
+            $response = $this->call(self::METHOD_LIST, $request);
+            $chunk = $this->normalizeListFromResult($response);
+            if ($chunk === []) {
+                break;
+            }
+
+            $items = array_merge($items, $chunk);
+            $lastStart = $next;
+            $next = $this->extractNextOffset($response);
+        }
+
+        return $items;
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-get.html
+     */
+    public function getById(int|string $id): array
+    {
+        $response = $this->call(self::METHOD_GET, ['id' => $id]);
+        $result = $response['result'] ?? null;
+        return is_array($result) ? $result : [];
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-add.html
+     */
+    public function add(array $fields, array $params = []): array
+    {
+        $request = $params;
+        $request['fields'] = $fields;
+
+        $response = $this->call(self::METHOD_ADD, $request);
+        $result = $response['result'] ?? null;
+        if (is_scalar($result) && $result !== '') {
+            return ['id' => (string) $result];
+        }
+
+        if (is_array($result)) {
+            $id = $result['id'] ?? $result['ID'] ?? null;
+            if (is_scalar($id) && $id !== '') {
+                return ['id' => (string) $id];
+            }
+        }
+
+        return [];
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-update.html
+     */
+    public function update(int|string $id, array $fields, array $params = []): bool
+    {
+        $request = $params;
+        $request['ID'] = (string) $id;
+        $request['fields'] = $fields;
+
+        $response = $this->call(self::METHOD_UPDATE, $request);
+        return $this->normalizeBooleanResult($response['result'] ?? null);
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-delete.html
+     */
+    public function delete(int|string $id): bool
+    {
+        $response = $this->call(self::METHOD_DELETE, ['id' => (string) $id]);
+        return $this->normalizeBooleanResult($response['result'] ?? null);
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-base-get.html
+     */
+    public function baseGet(): string
+    {
+        $response = $this->call(self::METHOD_BASE_GET);
+        $result = $response['result'] ?? null;
+        return is_scalar($result) ? (string) $result : '';
+    }
+
+    /**
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/currency/crm-currency-base-set.html
+     */
+    public function baseSet(int|string $id): bool
+    {
+        $response = $this->call(self::METHOD_BASE_SET, ['id' => (string) $id]);
+        return $this->normalizeBooleanResult($response['result'] ?? null);
+    }
+}
