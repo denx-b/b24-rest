@@ -87,7 +87,9 @@ final class Bitrix24Gateway
     {
         self::bootstrapDefaults();
         if (!is_callable(self::$setCurrentBitrix24Handler)) {
-            throw new RuntimeException('Bitrix24 context handler is not configured.');
+            throw new RuntimeException(
+                'Bitrix24 context handler is not configured. Configure gateway via Bitrix24Gateway::configure(...).'
+            );
         }
 
         call_user_func(self::$setCurrentBitrix24Handler, $memberId);
@@ -105,20 +107,14 @@ final class Bitrix24Gateway
             return;
         }
 
-        if (class_exists(\App\Infrastructure\Bitrix24\CRestExt::class)) {
-            self::configure(
-                [\App\Infrastructure\Bitrix24\CRestExt::class, 'call'],
-                [\App\Infrastructure\Bitrix24\CRestExt::class, 'callBatch'],
-                [\App\Infrastructure\Bitrix24\CRestExt::class, 'useWebhook'],
-                [\App\Infrastructure\Bitrix24\CRestExt::class, 'clearWebhook'],
-                [\App\Infrastructure\Bitrix24\CRestExt::class, 'setCurrentBitrix24'],
-                class_exists(\App\Infrastructure\Bitrix24\CRest::class)
-                    ? (int) \App\Infrastructure\Bitrix24\CRest::BATCH_COUNT
-                    : 50
-            );
-            return;
-        }
-
-        self::$isBootstrapped = true;
+        // Library default: autonomous webhook transport without framework dependencies.
+        self::configure(
+            [SimpleWebhookTransport::class, 'call'],
+            [SimpleWebhookTransport::class, 'callBatch'],
+            [SimpleWebhookTransport::class, 'useWebhook'],
+            [SimpleWebhookTransport::class, 'clearWebhook'],
+            null,
+            50
+        );
     }
 }
