@@ -11,6 +11,7 @@ use B24Rest\Rest\Entity\DealService;
 use B24Rest\Rest\Entity\DepartmentService;
 use B24Rest\Rest\Entity\InvoiceService;
 use B24Rest\Rest\Entity\LeadService;
+use B24Rest\Rest\Entity\PriceTypeService;
 use B24Rest\Rest\Entity\QuoteService;
 use B24Rest\Rest\Entity\SmartProcessItemService;
 use B24Rest\Rest\Entity\TaskService;
@@ -27,6 +28,7 @@ class Bitrix24RestFactory
     private ?InvoiceService $invoiceService = null;
     private ?QuoteService $quoteService = null;
     private ?TaskService $taskService = null;
+    private ?PriceTypeService $priceTypeService = null;
     /** @var array<int, SmartProcessItemService> */
     private array $smartProcessItemServices = [];
 
@@ -131,6 +133,15 @@ class Bitrix24RestFactory
         }
 
         return $this->taskService;
+    }
+
+    public function priceTypes(): PriceTypeService
+    {
+        if ($this->priceTypeService === null) {
+            $this->priceTypeService = new PriceTypeService();
+        }
+
+        return $this->priceTypeService;
     }
 
     public function smartItems(int $entityTypeId): SmartProcessItemService

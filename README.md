@@ -469,3 +469,52 @@ $userField = $b24->tasks()->itemUserFieldAdd([
     'EDIT_FORM_LABEL' => ['ru' => 'Поле API'],
 ]);
 ```
+
+## Bitrix24 REST: Типы цен (примеры)
+
+```php
+// Список типов цен (page = 1, фиксированный размер страницы = 50)
+$priceTypesPage = $b24->priceTypes()->list([
+    'select' => ['id', 'name', 'xmlId'],
+], 1);
+```
+
+```php
+// Все типы цен (start=-1 + внутренний курсор по <id)
+$allPriceTypes = $b24->priceTypes()->all([
+    'select' => ['id', 'name', 'xmlId'],
+]);
+```
+
+```php
+// Тип цены по ID
+$priceType = $b24->priceTypes()->getById(2);
+```
+
+```php
+// Добавить тип цены
+$createdPriceType = $b24->priceTypes()->add([
+    'name' => 'Base wholesale price',
+    'base' => 'N',
+    'sort' => 200,
+    'xmlId' => 'basewholesale',
+]);
+```
+
+```php
+// Обновить тип цены
+$updatedPriceType = $b24->priceTypes()->update(2, [
+    'name' => 'Base wholesale price v2',
+    'sort' => 300,
+]);
+```
+
+```php
+// Удалить тип цены
+$deletedPriceType = $b24->priceTypes()->delete(2);
+```
+
+```php
+// Получить доступные поля типа цены
+$priceTypeFields = $b24->priceTypes()->getFields();
+```

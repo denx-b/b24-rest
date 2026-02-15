@@ -111,6 +111,60 @@ abstract class AbstractRestService
         return $normalized;
     }
 
+    protected function ensureSelectContainsField(mixed $select, string $field): array
+    {
+        $field = trim($field);
+        if ($field === '') {
+            return is_array($select) ? array_values($select) : [];
+        }
+
+        if (!is_array($select) || $select === []) {
+            return [$field];
+        }
+
+        $normalized = array_values($select);
+        foreach ($normalized as $item) {
+            if (!is_string($item)) {
+                continue;
+            }
+
+            if (strcasecmp($item, $field) === 0 || $item === '*') {
+                return $normalized;
+            }
+        }
+
+        $normalized[] = $field;
+        return $normalized;
+    }
+
+    protected function extractNextOffset(array $response): ?int
+    {
+        $next = $response['next'] ?? null;
+        if (is_int($next)) {
+            return $next;
+        }
+
+        if (is_string($next) && ctype_digit($next)) {
+            return (int) $next;
+        }
+
+        return null;
+    }
+
+    protected function extractTotalCount(array $response): ?int
+    {
+        $total = $response['total'] ?? null;
+        if (is_int($total)) {
+            return $total;
+        }
+
+        if (is_string($total) && ctype_digit($total)) {
+            return (int) $total;
+        }
+
+        return null;
+    }
+
     protected function hasIdCursorConflicts(array $filter): bool
     {
         foreach ($filter as $key => $value) {
