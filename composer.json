@@ -1,0 +1,23 @@
+{
+  "name": "dbogdanoff/b24-rest",
+  "description": "Bitrix24 REST wrapper for mass-market and single-app integrations",
+  "type": "library",
+  "license": "proprietary",
+  "require": {
+    "php": ">=8.1",
+    "ext-curl": "*",
+    "ext-json": "*",
+    "ext-ctype": "*",
+    "ext-iconv": "*"
+  },
+  "autoload": {
+    "psr-4": {
+      "B24Rest\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "B24Rest\\Tests\\": "tests/"
+    }
+  }
+}
