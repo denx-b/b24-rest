@@ -2,7 +2,6 @@
 
 namespace B24Rest\Rest\Entity;
 
-use B24Rest\Bridge\Bitrix24Gateway;
 use B24Rest\Rest\AbstractRestService;
 use B24Rest\Rest\Exception\Bitrix24RestException;
 use RuntimeException;
@@ -1501,50 +1500,4 @@ class TaskService extends AbstractRestService
         return null;
     }
 
-    /**
-     * @param array<string, array{method:string, params?:array}> $commands
-     * @return array<string, mixed>
-     */
-    private function callBatchCommands(array $commands): array
-    {
-        if ($commands === []) {
-            return [];
-        }
-
-        $resultMap = [];
-        foreach (array_chunk($commands, Bitrix24Gateway::batchCount(), true) as $chunk) {
-            $response = Bitrix24Gateway::callBatch($chunk, 0);
-            if (!is_array($response)) {
-                throw new Bitrix24RestException('Bitrix24 batch call returned invalid response.');
-            }
-
-            if (!empty($response['error'])) {
-                $message = (string) ($response['error_description'] ?? $response['error_information'] ?? $response['error']);
-                throw new Bitrix24RestException("Bitrix24 batch call failed: {$message}", 0, $response);
-            }
-
-            $batchResult = $this->extractByPath($response, ['result', 'result'], []);
-            $batchErrors = $this->extractByPath($response, ['result', 'result_error'], []);
-
-            if (!is_array($batchResult)) {
-                $batchResult = [];
-            }
-
-            if (!is_array($batchErrors)) {
-                $batchErrors = [];
-            }
-
-            if ($batchErrors !== []) {
-                throw new Bitrix24RestException('Bitrix24 batch command failed.', 0, ['response' => $response]);
-            }
-
-            foreach (array_keys($chunk) as $key) {
-                if (array_key_exists($key, $batchResult)) {
-                    $resultMap[$key] = $batchResult[$key];
-                }
-            }
-        }
-
-        return $resultMap;
-    }
 }

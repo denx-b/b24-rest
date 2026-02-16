@@ -175,6 +175,49 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
     }
 
     /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array{id:string}>
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/universal/crm-item-add.html
+     */
+    public function addMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $fields) {
+            $position++;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must be an array of fields.', $position)
+                );
+            }
+
+            $request = $this->withEntityTypeId($params);
+            $request['useOriginalUfNames'] = 'N';
+            $request['fields'] = $this->normalizeFieldsForItemWrite($fields);
+
+            $key = 'add_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_ADD,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeAddResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
+    }
+
+    /**
      * @see https://apidocs.bitrix24.ru/api-reference/crm/universal/crm-item-update.html
      */
     public function update(int|string $id, array $fields, array $params = []): bool
@@ -191,6 +234,62 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
         }
 
         return $this->normalizeBooleanResult($response['result'] ?? null);
+    }
+
+    /**
+     * @param list<array{id:int|string,fields:array<string,mixed>}> $items
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/universal/crm-item-update.html
+     */
+    public function updateMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $item) {
+            $position++;
+            if (!is_array($item)) {
+                throw new InvalidArgumentException(sprintf('Item at position %d must be an array.', $position));
+            }
+
+            $id = $item['id'] ?? $item['ID'] ?? null;
+            if (!is_int($id) && !(is_string($id) && $id !== '')) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty id/ID.', $position)
+                );
+            }
+
+            $fields = $item['fields'] ?? $item['FIELDS'] ?? null;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain fields/FIELDS array.', $position)
+                );
+            }
+
+            $request = $this->withEntityTypeId($params);
+            $request['useOriginalUfNames'] = 'N';
+            $request['id'] = $id;
+            $request['fields'] = $this->normalizeFieldsForItemWrite($fields);
+
+            $key = 'update_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_UPDATE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeUpdateResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
     }
 
     /**
@@ -307,6 +406,51 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
         }
 
         return $normalized;
+    }
+
+    private function normalizeAddResult(mixed $value): array
+    {
+        if (is_int($value) || (is_string($value) && $value !== '')) {
+            return ['id' => (string) $value];
+        }
+
+        if (!is_array($value)) {
+            return [];
+        }
+
+        $item = $value['item'] ?? $value;
+        if (is_int($item) || (is_string($item) && $item !== '')) {
+            return ['id' => (string) $item];
+        }
+
+        if (!is_array($item)) {
+            $id = $value['id'] ?? $value['ID'] ?? null;
+            if (is_int($id) || (is_string($id) && $id !== '')) {
+                return ['id' => (string) $id];
+            }
+
+            return [];
+        }
+
+        $normalized = $this->normalizeItemFromItemList($item);
+        $id = $normalized['ID'] ?? $normalized['id'] ?? null;
+        if (is_int($id) || (is_string($id) && $id !== '')) {
+            return ['id' => (string) $id];
+        }
+
+        return [];
+    }
+
+    private function normalizeUpdateResult(mixed $value): bool
+    {
+        if (is_array($value)) {
+            $item = $value['item'] ?? null;
+            if (is_array($item)) {
+                return true;
+            }
+        }
+
+        return $this->normalizeBooleanResult($value);
     }
 
     protected function extractTotal(array $response): ?int

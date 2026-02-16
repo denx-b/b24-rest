@@ -61,6 +61,22 @@ $ok = $b24->deals()->update(123, [
 ```
 
 ```php
+// Массовое добавление (под капотом crm.item.add через batch, с чанками по 50)
+$created = $b24->deals()->addMany([
+    ['TITLE' => 'Сделка #1', 'STAGE_ID' => 'NEW'],
+    ['TITLE' => 'Сделка #2', 'STAGE_ID' => 'NEW'],
+]);
+```
+
+```php
+// Массовое обновление (под капотом crm.item.update через batch, с чанками по 50)
+$updated = $b24->deals()->updateMany([
+    ['id' => 123, 'fields' => ['TITLE' => 'Сделка #123 v2']],
+    ['id' => 124, 'fields' => ['TITLE' => 'Сделка #124 v2']],
+]);
+```
+
+```php
 // Удалить
 $deleted = $b24->deals()->delete(123);
 ```

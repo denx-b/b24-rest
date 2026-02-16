@@ -29,6 +29,72 @@ abstract class AbstractRestService
         return $response;
     }
 
+    /**
+     * @param array<string, array{method:string, params?:array}> $commands
+     */
+    protected function callBatch(array $commands, int $halt = 0): array
+    {
+        $response = Bitrix24Gateway::callBatch($commands, $halt);
+        if (!is_array($response)) {
+            throw new Bitrix24RestException('Bitrix24 batch call returned invalid response.');
+        }
+
+        if (!empty($response['error'])) {
+            $message = (string) ($response['error_description'] ?? $response['error_information'] ?? $response['error']);
+            throw new Bitrix24RestException(
+                "Bitrix24 batch call failed: {$message}",
+                0,
+                $response
+            );
+        }
+
+        return $response;
+    }
+
+    protected function batchCount(): int
+    {
+        return Bitrix24Gateway::batchCount();
+    }
+
+    /**
+     * @param array<string, array{method:string, params?:array}> $commands
+     * @return array<string, mixed>
+     */
+    protected function callBatchCommands(array $commands, int $halt = 0): array
+    {
+        if ($commands === []) {
+            return [];
+        }
+
+        $resultMap = [];
+        foreach (array_chunk($commands, $this->batchCount(), true) as $chunk) {
+            $response = $this->callBatch($chunk, $halt);
+
+            $batchResult = $this->extractByPath($response, ['result', 'result'], []);
+            $batchErrors = $this->extractByPath($response, ['result', 'result_error'], []);
+
+            if (!is_array($batchResult)) {
+                $batchResult = [];
+            }
+
+            if (!is_array($batchErrors)) {
+                $batchErrors = [];
+            }
+
+            if ($batchErrors !== []) {
+                throw new Bitrix24RestException('Bitrix24 batch command failed.', 0, ['response' => $response]);
+            }
+
+            foreach (array_keys($chunk) as $key) {
+                if (array_key_exists($key, $batchResult)) {
+                    $resultMap[$key] = $batchResult[$key];
+                }
+            }
+        }
+
+        return $resultMap;
+    }
+
     protected function extractByPath(array $payload, array $path, mixed $default = null): mixed
     {
         $current = $payload;
