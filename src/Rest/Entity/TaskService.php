@@ -3,11 +3,23 @@
 namespace B24Rest\Rest\Entity;
 
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddManyOperationInterface;
+use B24Rest\Rest\Contract\AddOperationInterface;
+use B24Rest\Rest\Contract\GetByIdOperationInterface;
+use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateManyOperationInterface;
+use B24Rest\Rest\Contract\UpdateOperationInterface;
 use B24Rest\Rest\Exception\Bitrix24RestException;
 use InvalidArgumentException;
 use RuntimeException;
 
-class TaskService extends AbstractRestService
+class TaskService extends AbstractRestService implements
+    ListOperationInterface,
+    GetByIdOperationInterface,
+    AddOperationInterface,
+    AddManyOperationInterface,
+    UpdateOperationInterface,
+    UpdateManyOperationInterface
 {
     private const METHOD_TASK_ADD = 'tasks.task.add';
     private const METHOD_TASK_UPDATE = 'tasks.task.update';
@@ -45,7 +57,7 @@ class TaskService extends AbstractRestService
     /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-add.html
      */
-    public function taskAdd(array $fields, array $params = []): array
+    public function add(array $fields, array $params = []): array
     {
         $request = $params;
         $request['fields'] = $fields;
@@ -59,7 +71,7 @@ class TaskService extends AbstractRestService
      * @return list<array<string, mixed>>
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-add.html
      */
-    public function taskAddMany(array $items, array $params = []): array
+    public function addMany(array $items, array $params = []): array
     {
         if ($items === []) {
             return [];
@@ -98,7 +110,7 @@ class TaskService extends AbstractRestService
     /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-update.html
      */
-    public function taskUpdate(int|string $taskId, array $fields, array $params = []): bool
+    public function update(int|string $taskId, array $fields, array $params = []): bool
     {
         $request = $params;
         $request['taskId'] = $taskId;
@@ -113,7 +125,7 @@ class TaskService extends AbstractRestService
      * @return list<bool>
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-update.html
      */
-    public function taskUpdateMany(array $items, array $params = []): array
+    public function updateMany(array $items, array $params = []): array
     {
         if ($items === []) {
             return [];
@@ -165,7 +177,7 @@ class TaskService extends AbstractRestService
     /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-get.html
      */
-    public function taskGet(int|string $taskId, array $params = []): array
+    public function get(int|string $taskId, array $params = []): array
     {
         $request = $params;
         $request['taskId'] = $taskId;
@@ -181,10 +193,15 @@ class TaskService extends AbstractRestService
         return is_array($first) ? $first : [];
     }
 
+    public function getById(int|string $id): array
+    {
+        return $this->get($id);
+    }
+
     /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-list.html
      */
-    public function taskList(array $params = [], int $page = 1): array
+    public function list(array $params = [], int $page = 1): array
     {
         $this->ensurePositivePage($page);
 
@@ -352,7 +369,7 @@ class TaskService extends AbstractRestService
         }
 
         try {
-            $task = $this->taskAdd($fields, $params);
+            $task = $this->add($fields, $params);
         } catch (Bitrix24RestException $exception) {
             $canRetryWithoutWebdavFiles = isset($fields['UF_TASK_WEBDAV_FILES'])
                 && (
@@ -364,7 +381,7 @@ class TaskService extends AbstractRestService
             }
 
             unset($fields['UF_TASK_WEBDAV_FILES']);
-            $task = $this->taskAdd($fields, $params);
+            $task = $this->add($fields, $params);
         }
 
         $taskId = $this->extractTaskIdFromTaskResult($task);
@@ -512,6 +529,54 @@ class TaskService extends AbstractRestService
             $key = 'task_complete_' . $position;
             $commands[$key] = [
                 'method' => self::METHOD_TASK_COMPLETE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeBatchSuccessResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param list<int|string|array{taskId?:int|string,id?:int|string,ID?:int|string}> $taskIds
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-delete.html
+     */
+    public function taskDeleteMany(array $taskIds, array $params = []): array
+    {
+        if ($taskIds === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($taskIds as $item) {
+            $position++;
+            $taskId = null;
+            if (is_array($item)) {
+                $taskId = $this->normalizeBatchEntityId($item['taskId'] ?? $item['id'] ?? $item['ID'] ?? null);
+            } else {
+                $taskId = $this->normalizeBatchEntityId($item);
+            }
+
+            if ($taskId === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty taskId/id/ID.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['taskId'] = $taskId;
+            $key = 'task_delete_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_TASK_DELETE,
                 'params' => $request,
             ];
             $commandKeys[] = $key;

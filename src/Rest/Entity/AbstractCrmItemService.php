@@ -3,11 +3,13 @@
 namespace B24Rest\Rest\Entity;
 
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddManyOperationInterface;
 use B24Rest\Rest\Contract\AddOperationInterface;
 use B24Rest\Rest\Contract\AllOperationInterface;
 use B24Rest\Rest\Contract\DeleteOperationInterface;
 use B24Rest\Rest\Contract\GetByIdOperationInterface;
 use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateManyOperationInterface;
 use B24Rest\Rest\Contract\UpdateOperationInterface;
 use InvalidArgumentException;
 use RuntimeException;
@@ -16,7 +18,9 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
     ListOperationInterface,
     AllOperationInterface,
     GetByIdOperationInterface,
+    AddManyOperationInterface,
     AddOperationInterface,
+    UpdateManyOperationInterface,
     UpdateOperationInterface,
     DeleteOperationInterface
 {

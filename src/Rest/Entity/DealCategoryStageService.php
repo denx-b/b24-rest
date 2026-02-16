@@ -5,9 +5,19 @@ namespace B24Rest\Rest\Entity;
 use B24Rest\Support\CrmEntity;
 use B24Rest\Support\Str;
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddOperationInterface;
+use B24Rest\Rest\Contract\DeleteOperationInterface;
+use B24Rest\Rest\Contract\GetByIdOperationInterface;
+use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateOperationInterface;
 use InvalidArgumentException;
 
-class DealCategoryStageService extends AbstractRestService
+class DealCategoryStageService extends AbstractRestService implements
+    ListOperationInterface,
+    GetByIdOperationInterface,
+    AddOperationInterface,
+    UpdateOperationInterface,
+    DeleteOperationInterface
 {
     private const METHOD_LIST = 'crm.status.list';
     private const METHOD_GET = 'crm.status.get';
@@ -19,7 +29,7 @@ class DealCategoryStageService extends AbstractRestService
      * Список стадий воронки
      * @see https://apidocs.bitrix24.ru/api-reference/crm/status/crm-status-list.html
      */
-    public function list(array $params = []): array
+    public function list(array $params = [], int $page = 1): array
     {
         $request = $params;
         if (!isset($request['order']) || !is_array($request['order']) || $request['order'] === []) {

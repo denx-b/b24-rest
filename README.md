@@ -284,7 +284,7 @@ $deletedDepartment = $b24->departments()->delete(100);
 
 ```php
 // Добавить задачу
-$task = $b24->tasks()->taskAdd([
+$task = $b24->tasks()->add([
     'TITLE' => 'Задача из API',
     'RESPONSIBLE_ID' => 1,
 ]);
@@ -292,14 +292,14 @@ $task = $b24->tasks()->taskAdd([
 
 ```php
 // Обновить задачу
-$ok = $b24->tasks()->taskUpdate(100, [
+$ok = $b24->tasks()->update(100, [
     'TITLE' => 'Обновлённый заголовок задачи',
 ]);
 ```
 
 ```php
 // Массовое добавление задач (под капотом tasks.task.add через batch, с чанками по 50)
-$createdTasks = $b24->tasks()->taskAddMany([
+$createdTasks = $b24->tasks()->addMany([
     ['TITLE' => 'Задача #1', 'RESPONSIBLE_ID' => 1],
     ['TITLE' => 'Задача #2', 'RESPONSIBLE_ID' => 1],
 ]);
@@ -307,7 +307,7 @@ $createdTasks = $b24->tasks()->taskAddMany([
 
 ```php
 // Массовое обновление задач (под капотом tasks.task.update через batch, с чанками по 50)
-$updated = $b24->tasks()->taskUpdateMany([
+$updated = $b24->tasks()->updateMany([
     ['taskId' => 100, 'fields' => ['TITLE' => 'Задача #100 v2']],
     ['taskId' => 101, 'fields' => ['TITLE' => 'Задача #101 v2']],
 ]);
@@ -315,12 +315,12 @@ $updated = $b24->tasks()->taskUpdateMany([
 
 ```php
 // Получить задачу
-$task = $b24->tasks()->taskGet(100);
+$task = $b24->tasks()->get(100);
 ```
 
 ```php
 // Список задач (page = 1, фиксированный размер страницы = 50)
-$tasks = $b24->tasks()->taskList([
+$tasks = $b24->tasks()->list([
     'order' => ['ID' => 'DESC'],
     'select' => ['ID', 'TITLE', 'STATUS'],
 ], 1);
@@ -393,6 +393,11 @@ $completed = $b24->tasks()->taskCompleteMany([100, 101, 102]);
 ```php
 // Удалить задачу
 $ok = $b24->tasks()->taskDelete(100);
+```
+
+```php
+// Массово удалить задачи (под капотом tasks.task.delete через batch, с чанками по 50)
+$deleted = $b24->tasks()->taskDeleteMany([100, 101, 102]);
 ```
 
 ```php
@@ -555,6 +560,22 @@ $updatedPriceType = $b24->priceTypes()->update(2, [
 ```
 
 ```php
+// Массовое добавление типов цен (под капотом catalog.priceType.add через batch, с чанками по 50)
+$createdPriceTypes = $b24->priceTypes()->addMany([
+    ['name' => 'Wholesale A', 'base' => 'N', 'sort' => 400, 'xmlId' => 'wholesale_a'],
+    ['name' => 'Wholesale B', 'base' => 'N', 'sort' => 500, 'xmlId' => 'wholesale_b'],
+]);
+```
+
+```php
+// Массовое обновление типов цен (под капотом catalog.priceType.update через batch, с чанками по 50)
+$updatedPriceTypes = $b24->priceTypes()->updateMany([
+    ['id' => 2, 'fields' => ['name' => 'Base wholesale price v3']],
+    ['id' => 3, 'fields' => ['sort' => 600]],
+]);
+```
+
+```php
 // Удалить тип цены
 $deletedPriceType = $b24->priceTypes()->delete(2);
 ```
@@ -604,6 +625,22 @@ $updatedMeasure = $b24->measures()->update(6, [
 ```
 
 ```php
+// Массовое добавление единиц измерения (под капотом catalog.measure.add через batch, с чанками по 50)
+$createdMeasures = $b24->measures()->addMany([
+    ['code' => 801, 'measureTitle' => 'Набор A', 'symbolIntl' => 'setA'],
+    ['code' => 802, 'measureTitle' => 'Набор B', 'symbolIntl' => 'setB'],
+]);
+```
+
+```php
+// Массовое обновление единиц измерения (под капотом catalog.measure.update через batch, с чанками по 50)
+$updatedMeasures = $b24->measures()->updateMany([
+    ['id' => 6, 'fields' => ['measureTitle' => 'Комплект v3']],
+    ['id' => 7, 'fields' => ['symbolIntl' => 'pcs.']],
+]);
+```
+
+```php
 // Удалить единицу измерения
 $deletedMeasure = $b24->measures()->delete(6);
 ```
@@ -648,6 +685,22 @@ $createdCurrency = $b24->currencies()->add([
 // Обновить валюту
 $updatedCurrency = $b24->currencies()->update('CNY', [
     'AMOUNT' => 15.3449,
+]);
+```
+
+```php
+// Массовое добавление валют (под капотом crm.currency.add через batch, с чанками по 50)
+$createdCurrencies = $b24->currencies()->addMany([
+    ['CURRENCY' => 'KZT', 'AMOUNT' => 1, 'AMOUNT_CNT' => 1, 'SORT' => 200],
+    ['CURRENCY' => 'AED', 'AMOUNT' => 1, 'AMOUNT_CNT' => 1, 'SORT' => 300],
+]);
+```
+
+```php
+// Массовое обновление валют (под капотом crm.currency.update через batch, с чанками по 50)
+$updatedCurrencies = $b24->currencies()->updateMany([
+    ['id' => 'CNY', 'fields' => ['AMOUNT' => 15.5000]],
+    ['id' => 'USD', 'fields' => ['SORT' => 50]],
 ]);
 ```
 

@@ -3,11 +3,13 @@
 namespace B24Rest\Rest\Entity;
 
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddManyOperationInterface;
 use B24Rest\Rest\Contract\AddOperationInterface;
 use B24Rest\Rest\Contract\AllOperationInterface;
 use B24Rest\Rest\Contract\DeleteOperationInterface;
 use B24Rest\Rest\Contract\GetByIdOperationInterface;
 use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateManyOperationInterface;
 use B24Rest\Rest\Contract\UpdateOperationInterface;
 use InvalidArgumentException;
 use RuntimeException;
@@ -16,7 +18,9 @@ class PriceTypeService extends AbstractRestService implements
     ListOperationInterface,
     AllOperationInterface,
     GetByIdOperationInterface,
+    AddManyOperationInterface,
     AddOperationInterface,
+    UpdateManyOperationInterface,
     UpdateOperationInterface,
     DeleteOperationInterface
 {
@@ -154,6 +158,47 @@ class PriceTypeService extends AbstractRestService implements
     }
 
     /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array{id:string}>
+     * @see https://apidocs.bitrix24.ru/api-reference/catalog/price-type/catalog-price-type-add.html
+     */
+    public function addMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $fields) {
+            $position++;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must be an array of fields.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['fields'] = $fields;
+            $key = 'price_type_add_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_ADD,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeIdResponse($resultMap[$key] ?? null);
+        }
+
+        return $result;
+    }
+
+    /**
      * @see https://apidocs.bitrix24.ru/api-reference/catalog/price-type/catalog-price-type-update.html
      */
     public function update(int|string $id, array $fields, array $params = []): bool
@@ -163,11 +208,61 @@ class PriceTypeService extends AbstractRestService implements
         $request['fields'] = $fields;
 
         $response = $this->call(self::METHOD_UPDATE, $request);
-        if (is_array($response['result'] ?? null)) {
-            return true;
+        return $this->normalizeUpdateResult($response['result'] ?? null);
+    }
+
+    /**
+     * @param list<array{id?:int|string,ID?:int|string,fields?:array<string,mixed>,FIELDS?:array<string,mixed>}> $items
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/catalog/price-type/catalog-price-type-update.html
+     */
+    public function updateMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
         }
 
-        return $this->normalizeBooleanResult($response['result'] ?? null);
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $item) {
+            $position++;
+            if (!is_array($item)) {
+                throw new InvalidArgumentException(sprintf('Item at position %d must be an array.', $position));
+            }
+
+            $id = $this->normalizeBatchEntityId($item['id'] ?? $item['ID'] ?? null);
+            if ($id === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty id/ID.', $position)
+                );
+            }
+
+            $fields = $item['fields'] ?? $item['FIELDS'] ?? null;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain fields/FIELDS array.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['id'] = $id;
+            $request['fields'] = $fields;
+            $key = 'price_type_update_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_UPDATE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeUpdateResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
     }
 
     /**
@@ -203,6 +298,33 @@ class PriceTypeService extends AbstractRestService implements
         }
 
         return [];
+    }
+
+    private function normalizeUpdateResult(mixed $result): bool
+    {
+        if (is_array($result)) {
+            return true;
+        }
+
+        return $this->normalizeBooleanResult($result);
+    }
+
+    private function normalizeBatchEntityId(mixed $value): int|string|null
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return $value;
     }
 
     private function extractMinId(array $chunk): int

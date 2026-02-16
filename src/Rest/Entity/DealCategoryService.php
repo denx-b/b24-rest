@@ -4,9 +4,19 @@ namespace B24Rest\Rest\Entity;
 
 use B24Rest\Support\CrmEntity;
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Contract\AddOperationInterface;
+use B24Rest\Rest\Contract\DeleteOperationInterface;
+use B24Rest\Rest\Contract\GetByIdOperationInterface;
+use B24Rest\Rest\Contract\ListOperationInterface;
+use B24Rest\Rest\Contract\UpdateOperationInterface;
 use InvalidArgumentException;
 
-class DealCategoryService extends AbstractRestService
+class DealCategoryService extends AbstractRestService implements
+    ListOperationInterface,
+    GetByIdOperationInterface,
+    AddOperationInterface,
+    UpdateOperationInterface,
+    DeleteOperationInterface
 {
     private const METHOD_LIST = 'crm.category.list';
     private const METHOD_GET = 'crm.category.get';
@@ -18,7 +28,7 @@ class DealCategoryService extends AbstractRestService
      * Список воронок сделок
      * @see https://apidocs.bitrix24.ru/api-reference/crm/universal/category/crm-category-list.html
      */
-    public function list(array $params = []): array
+    public function list(array $params = [], int $page = 1): array
     {
         $request = $this->withDealEntityTypeId($params);
         if (!isset($request['order']) || !is_array($request['order']) || $request['order'] === []) {
