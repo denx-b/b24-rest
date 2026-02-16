@@ -298,6 +298,22 @@ $ok = $b24->tasks()->taskUpdate(100, [
 ```
 
 ```php
+// Массовое добавление задач (под капотом tasks.task.add через batch, с чанками по 50)
+$createdTasks = $b24->tasks()->taskAddMany([
+    ['TITLE' => 'Задача #1', 'RESPONSIBLE_ID' => 1],
+    ['TITLE' => 'Задача #2', 'RESPONSIBLE_ID' => 1],
+]);
+```
+
+```php
+// Массовое обновление задач (под капотом tasks.task.update через batch, с чанками по 50)
+$updated = $b24->tasks()->taskUpdateMany([
+    ['taskId' => 100, 'fields' => ['TITLE' => 'Задача #100 v2']],
+    ['taskId' => 101, 'fields' => ['TITLE' => 'Задача #101 v2']],
+]);
+```
+
+```php
 // Получить задачу
 $task = $b24->tasks()->taskGet(100);
 ```
@@ -357,8 +373,21 @@ $ok = $b24->tasks()->taskDelegate(100, 1);
 ```
 
 ```php
+// Массово делегировать задачи (под капотом tasks.task.delegate через batch, с чанками по 50)
+$delegated = $b24->tasks()->taskDelegateMany([
+    ['taskId' => 100, 'userId' => 1],
+    ['taskId' => 101, 'userId' => 1],
+]);
+```
+
+```php
 // Завершить задачу
 $ok = $b24->tasks()->taskComplete(100);
+```
+
+```php
+// Массово завершить задачи (под капотом tasks.task.complete через batch, с чанками по 50)
+$completed = $b24->tasks()->taskCompleteMany([100, 101, 102]);
 ```
 
 ```php

@@ -4,6 +4,7 @@ namespace B24Rest\Rest\Entity;
 
 use B24Rest\Rest\AbstractRestService;
 use B24Rest\Rest\Exception\Bitrix24RestException;
+use InvalidArgumentException;
 use RuntimeException;
 
 class TaskService extends AbstractRestService
@@ -54,6 +55,47 @@ class TaskService extends AbstractRestService
     }
 
     /**
+     * @param list<array<string, mixed>> $items
+     * @return list<array<string, mixed>>
+     * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-add.html
+     */
+    public function taskAddMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $fields) {
+            $position++;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must be an array of fields.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['fields'] = $fields;
+            $key = 'task_add_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_TASK_ADD,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeTaskBatchResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
+    }
+
+    /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-update.html
      */
     public function taskUpdate(int|string $taskId, array $fields, array $params = []): bool
@@ -64,6 +106,60 @@ class TaskService extends AbstractRestService
 
         $response = $this->call(self::METHOD_TASK_UPDATE, $request);
         return $this->normalizeSuccessResult($response);
+    }
+
+    /**
+     * @param list<array{taskId?:int|string,id?:int|string,ID?:int|string,fields?:array<string,mixed>,FIELDS?:array<string,mixed>}> $items
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-update.html
+     */
+    public function taskUpdateMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $item) {
+            $position++;
+            if (!is_array($item)) {
+                throw new InvalidArgumentException(sprintf('Item at position %d must be an array.', $position));
+            }
+
+            $taskId = $this->normalizeBatchEntityId($item['taskId'] ?? $item['id'] ?? $item['ID'] ?? null);
+            if ($taskId === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty taskId/id/ID.', $position)
+                );
+            }
+
+            $fields = $item['fields'] ?? $item['FIELDS'] ?? null;
+            if (!is_array($fields)) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain fields/FIELDS array.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['taskId'] = $taskId;
+            $request['fields'] = $fields;
+            $key = 'task_update_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_TASK_UPDATE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeBatchSuccessResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
     }
 
     /**
@@ -315,6 +411,62 @@ class TaskService extends AbstractRestService
     }
 
     /**
+     * @param list<array{taskId?:int|string,id?:int|string,ID?:int|string,userId?:int|string,responsibleId?:int|string,RESPONSIBLE_ID?:int|string}> $items
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-delegate.html
+     */
+    public function taskDelegateMany(array $items, array $params = []): array
+    {
+        if ($items === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($items as $item) {
+            $position++;
+            if (!is_array($item)) {
+                throw new InvalidArgumentException(sprintf('Item at position %d must be an array.', $position));
+            }
+
+            $taskId = $this->normalizeBatchEntityId($item['taskId'] ?? $item['id'] ?? $item['ID'] ?? null);
+            if ($taskId === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty taskId/id/ID.', $position)
+                );
+            }
+
+            $userId = $this->normalizeBatchEntityId(
+                $item['userId'] ?? $item['responsibleId'] ?? $item['RESPONSIBLE_ID'] ?? null
+            );
+            if ($userId === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty userId/responsibleId.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['taskId'] = $taskId;
+            $request['userId'] = $userId;
+            $key = 'task_delegate_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_TASK_DELEGATE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeBatchSuccessResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
+    }
+
+    /**
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-complete.html
      */
     public function taskComplete(int|string $taskId, array $params = []): bool
@@ -324,6 +476,54 @@ class TaskService extends AbstractRestService
 
         $response = $this->call(self::METHOD_TASK_COMPLETE, $request);
         return $this->normalizeSuccessResult($response);
+    }
+
+    /**
+     * @param list<int|string|array{taskId?:int|string,id?:int|string,ID?:int|string}> $taskIds
+     * @return list<bool>
+     * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-complete.html
+     */
+    public function taskCompleteMany(array $taskIds, array $params = []): array
+    {
+        if ($taskIds === []) {
+            return [];
+        }
+
+        $commands = [];
+        $commandKeys = [];
+        $position = 0;
+        foreach ($taskIds as $item) {
+            $position++;
+            $taskId = null;
+            if (is_array($item)) {
+                $taskId = $this->normalizeBatchEntityId($item['taskId'] ?? $item['id'] ?? $item['ID'] ?? null);
+            } else {
+                $taskId = $this->normalizeBatchEntityId($item);
+            }
+
+            if ($taskId === null) {
+                throw new InvalidArgumentException(
+                    sprintf('Item at position %d must contain non-empty taskId/id/ID.', $position)
+                );
+            }
+
+            $request = $params;
+            $request['taskId'] = $taskId;
+            $key = 'task_complete_' . $position;
+            $commands[$key] = [
+                'method' => self::METHOD_TASK_COMPLETE,
+                'params' => $request,
+            ];
+            $commandKeys[] = $key;
+        }
+
+        $resultMap = $this->callBatchCommands($commands);
+        $result = [];
+        foreach ($commandKeys as $key) {
+            $result[] = $this->normalizeBatchSuccessResult($resultMap[$key] ?? null);
+        }
+
+        return $result;
     }
 
     /**
@@ -935,6 +1135,11 @@ class TaskService extends AbstractRestService
         return $this->normalizeCreatedResult($response);
     }
 
+    private function normalizeTaskBatchResult(mixed $value): array
+    {
+        return $this->normalizeTaskResult(['result' => $value]);
+    }
+
     private function normalizeTemplateListResponse(array $response): array
     {
         $raw = $this->extractByPath($response, ['result', 'task_templates'], []);
@@ -1392,6 +1597,11 @@ class TaskService extends AbstractRestService
         return $this->normalizeBooleanResult($result);
     }
 
+    private function normalizeBatchSuccessResult(mixed $value): bool
+    {
+        return $this->normalizeSuccessResult(['result' => $value]);
+    }
+
     private function normalizeListFromTaskResponse(array $response, array $priorityKeys = []): array
     {
         $result = $response['result'] ?? null;
@@ -1487,6 +1697,24 @@ class TaskService extends AbstractRestService
         return $parsed;
     }
 
+    private function normalizeBatchEntityId(mixed $value): int|string|null
+    {
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (!is_string($value)) {
+            return null;
+        }
+
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        return $value;
+    }
+
     private function toIntOrNull(mixed $value): ?int
     {
         if (is_int($value)) {
@@ -1499,5 +1727,4 @@ class TaskService extends AbstractRestService
 
         return null;
     }
-
 }
