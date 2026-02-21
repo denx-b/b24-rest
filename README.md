@@ -1,8 +1,4 @@
-# b24-rest
-
-REST-обёртка Bitrix24 для интеграций с Bitrix24.
-
-## Установка
+## REST-обёртка Bitrix24
 
 ```bash
 composer require denx-b/b24-rest:dev-main
@@ -13,23 +9,19 @@ composer require denx-b/b24-rest:dev-main
 ```php
 use B24Rest\Rest\Bitrix24RestFactory;
 
-$b24 = Bitrix24RestFactory::fromWebhook('https://portal.bitrix24.ru/rest/1/<webhook>/');
+$b24 = Bitrix24RestFactory::fromWebhook('https://<portal>/rest/1/<webhook>/');
 ```
 
-## Bitrix24 REST: Сделки (примеры)
+## Сделки (примеры)
 
 ```php
-// Получить список сделок через crm.item.list: страница N, фиксированный размер страницы = 50 (сортировка по умолчанию ID DESC)
-$page = $b24->deals()->list([
-    'select' => ['ID', 'TITLE', 'STAGE_ID'],
-], 1);
+// Получить список сделок через crm.item.list
+$page = $b24->deals()->list();
 ```
 
 ```php
 // Выгрузить все сделки (start = -1 + внутренний курсор по <ID, сортировка ID DESC)
-$allDeals = $b24->deals()->all([
-    'select' => ['ID', 'TITLE', 'STAGE_ID'],
-]);
+$allDeals = $b24->deals()->all();
 ```
 
 ```php
@@ -61,7 +53,7 @@ $ok = $b24->deals()->update(123, [
 ```
 
 ```php
-// Массовое добавление (под капотом crm.item.add через batch, с чанками по 50)
+// Массовое добавление (под капотом batch, с чанками по 50)
 $created = $b24->deals()->addMany([
     ['TITLE' => 'Сделка #1', 'STAGE_ID' => 'NEW'],
     ['TITLE' => 'Сделка #2', 'STAGE_ID' => 'NEW'],
@@ -69,7 +61,7 @@ $created = $b24->deals()->addMany([
 ```
 
 ```php
-// Массовое обновление (под капотом crm.item.update через batch, с чанками по 50)
+// Массовое обновление
 $updated = $b24->deals()->updateMany([
     ['id' => 123, 'fields' => ['TITLE' => 'Сделка #123 v2']],
     ['id' => 124, 'fields' => ['TITLE' => 'Сделка #124 v2']],
@@ -145,7 +137,8 @@ $deletedDirection = $b24->dealCategories()->delete(1);
 
 ```php
 // Получить список стадий выбранного направления (ID категории)
-$stages = $b24->dealCategoryStages()->listByCategoryId(1);
+$stages = $b24->dealCategoryStages()
+    ->listByCategoryId(1);
 ```
 
 ```php
@@ -157,7 +150,8 @@ $allStages = $b24->dealCategoryStages()->list([
 
 ```php
 // Получить стадию по ID
-$stage = $b24->dealCategoryStages()->getById(100);
+$stage = $b24->dealCategoryStages()
+    ->getById(100);
 ```
 
 ```php
@@ -207,7 +201,7 @@ $updatedStage = $b24->dealCategoryStages()->update(100, [
 $deletedStage = $b24->dealCategoryStages()->delete(100);
 ```
 
-## Bitrix24 REST: Другие сущности crm.item (примеры)
+## Другие сущности crm.item (примеры)
 
 ```php
 // Лиды
@@ -241,46 +235,7 @@ $smartItems = $b24->smartItems(1086)->list();
 
 `contacts()` и `companies()` поддерживают только `crm.item.*` (без `productRow*`).
 
-## Bitrix24 REST: Структура компании (примеры)
-
-```php
-// Все департаменты (внутренняя пагинация по start/next, сортировка по умолчанию ID DESC)
-$departments = $b24->departments()->all();
-```
-
-```php
-// Департамент по ID
-$department = $b24->departments()->getById(1);
-```
-
-```php
-// Сотрудники департамента по ID департамента
-$departmentUsers = $b24->departments()->getUsersById(1, [
-    'SELECT' => ['ID', 'NAME', 'LAST_NAME', 'UF_DEPARTMENT'],
-]);
-```
-
-```php
-// Добавить департамент
-$createdDepartment = $b24->departments()->add([
-    'NAME' => 'Новый департамент',
-    'PARENT' => 1,
-]);
-```
-
-```php
-// Обновить департамент
-$updatedDepartment = $b24->departments()->update(100, [
-    'NAME' => 'Переименованный департамент',
-]);
-```
-
-```php
-// Удалить департамент
-$deletedDepartment = $b24->departments()->delete(100);
-```
-
-## Bitrix24 REST: Задачи (примеры)
+## Задачи
 
 ```php
 // Добавить задачу
@@ -335,18 +290,8 @@ $allTasks = $b24->tasks()->taskAll([
 ```
 
 ```php
-// Список шаблонов задач (недокументированный метод, на практике используем start=-1)
+// Список шаблонов задач
 $templates = $b24->tasks()->templateList();
-```
-
-```php
-// Шаблон задачи по ID
-$template = $b24->tasks()->templateGet(3);
-```
-
-```php
-// Чек-лист шаблона задачи
-$templateChecklist = $b24->tasks()->templateChecklistList(3);
 ```
 
 ```php
@@ -358,8 +303,14 @@ $created = $b24->tasks()->taskAddFromTemplate(3, [
 ```
 
 ```php
-// Создать задачу по шаблону (минимально)
-$created = $b24->tasks()->taskAddFromTemplate(3, ['RESPONSIBLE_ID' => 1]);
+// Получить шаблон задачи по ID
+$template = $b24->tasks()->templateGet(3);
+```
+
+```php
+// Получить чек-лист шаблона задачи
+$templateChecklist = $b24->tasks()
+    ->templateChecklistList(3);
 ```
 
 ```php
@@ -387,7 +338,8 @@ $ok = $b24->tasks()->taskComplete(100);
 
 ```php
 // Массово завершить задачи (под капотом tasks.task.complete через batch, с чанками по 50)
-$completed = $b24->tasks()->taskCompleteMany([100, 101, 102]);
+$completed = $b24->tasks()
+    ->taskCompleteMany([100, 101, 102]);
 ```
 
 ```php
@@ -520,7 +472,46 @@ $userField = $b24->tasks()->itemUserFieldAdd([
 ]);
 ```
 
-## Bitrix24 REST: Типы цен (примеры)
+## Структура компании
+
+```php
+// Все департаменты (внутренняя пагинация по start/next, сортировка по умолчанию ID DESC)
+$departments = $b24->departments()->all();
+```
+
+```php
+// Департамент по ID
+$department = $b24->departments()->getById(1);
+```
+
+```php
+// Сотрудники департамента по ID департамента
+$departmentUsers = $b24->departments()->getUsersById(1, [
+    'SELECT' => ['ID', 'NAME', 'LAST_NAME', 'UF_DEPARTMENT'],
+]);
+```
+
+```php
+// Добавить департамент
+$createdDepartment = $b24->departments()->add([
+    'NAME' => 'Новый департамент',
+    'PARENT' => 1,
+]);
+```
+
+```php
+// Обновить департамент
+$updatedDepartment = $b24->departments()->update(100, [
+    'NAME' => 'Переименованный департамент',
+]);
+```
+
+```php
+// Удалить департамент
+$deletedDepartment = $b24->departments()->delete(100);
+```
+
+## Типы цен
 
 ```php
 // Список типов цен (page = 1, фиксированный размер страницы = 50)
@@ -585,7 +576,7 @@ $deletedPriceType = $b24->priceTypes()->delete(2);
 $priceTypeFields = $b24->priceTypes()->getFields();
 ```
 
-## Bitrix24 REST: Единицы измерения (примеры)
+## Единицы измерения
 
 ```php
 // Список единиц измерения (page = 1, фиксированный размер страницы = 50)
@@ -650,7 +641,7 @@ $deletedMeasure = $b24->measures()->delete(6);
 $measureFields = $b24->measures()->getFields();
 ```
 
-## Bitrix24 REST: Валюты (примеры)
+## Валюты
 
 ```php
 // Список валют (page = 1, фиксированный размер страницы = 50)
