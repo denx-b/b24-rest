@@ -33,12 +33,12 @@ $allInWork = $b24->deals()->all([
 ```
 
 ```php
-// Получить по ID
+// Получить сделку по ID
 $deal = $b24->deals()->getById(123);
 ```
 
 ```php
-// Добавить
+// Добавить сделку
 $created = $b24->deals()->add([
     'TITLE' => 'Сделка из API',
     'STAGE_ID' => 'NEW',
@@ -46,7 +46,7 @@ $created = $b24->deals()->add([
 ```
 
 ```php
-// Обновить
+// Обновить сделку
 $ok = $b24->deals()->update(123, [
     'TITLE' => 'Обновлённый заголовок',
 ]);
@@ -69,7 +69,7 @@ $updated = $b24->deals()->updateMany([
 ```
 
 ```php
-// Удалить
+// Удалить сделку
 $deleted = $b24->deals()->delete(123);
 ```
 
