@@ -48,7 +48,7 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
         $start = ($page - 1) * self::PAGE_SIZE;
         $request = $this->prepareItemListRequest($params);
         if (!isset($request['order']) || !is_array($request['order']) || $request['order'] === []) {
-            $request['order'] = ['id' => 'DESC'];
+            $request['order'] = ['id' => 'ASC'];
         }
 
         $request['start'] = $start;
@@ -80,16 +80,9 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
     public function all(array $params = []): array
     {
         $requestBase = $this->prepareItemListRequest($params, false);
-        $userOrder = $this->normalizeUserOrderForOutput($params['order'] ?? null);
-        if ($this->hasIdOrderConflict($userOrder)) {
-            throw new InvalidArgumentException(
-                "Method all() uses internal ID cursor. Remove ID from order in any case variant."
-            );
-        }
-
-        unset($requestBase['order']);
+        unset($requestBase['order'], $requestBase['ORDER']);
         $requestBase['start'] = -1;
-        $requestBase['order'] = ['id' => 'DESC'];
+        $requestBase['order'] = ['id' => 'ASC'];
         $requestBase['select'] = $this->ensureSelectContainsItemId($requestBase['select'] ?? null);
 
         $userFilter = is_array($requestBase['filter'] ?? null) ? $requestBase['filter'] : [];
@@ -112,7 +105,7 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
             $request = $requestBase;
             $request['filter'] = $userFilter;
             if ($lastId !== null) {
-                $request['filter']['<id'] = $lastId;
+                $request['filter']['>id'] = $lastId;
             }
 
             $response = $this->call(self::METHOD_LIST, $request);
@@ -122,16 +115,12 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
             }
 
             $items = array_merge($items, $chunk);
-            $newLastId = $this->extractMinId($chunk);
-            if ($lastId !== null && $newLastId >= $lastId) {
+            $newLastId = $this->extractMaxId($chunk);
+            if ($lastId !== null && $newLastId <= $lastId) {
                 throw new RuntimeException('The all() cursor did not advance. Stop to avoid infinite loop.');
             }
 
             $lastId = $newLastId;
-        }
-
-        if ($userOrder !== []) {
-            $this->sortItemsByOrder($items, $userOrder);
         }
 
         return $items;
@@ -540,23 +529,6 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
         return $normalized;
     }
 
-    private function normalizeUserOrderForOutput(mixed $order): array
-    {
-        $normalized = $this->normalizeUserOrder($order);
-        if ($normalized === []) {
-            return [];
-        }
-
-        $output = [];
-        foreach ($normalized as $field => $direction) {
-            $requestField = $this->normalizeFieldNameForItemListRequest($field, false);
-            $responseField = $this->normalizeFieldNameFromItemListResponse($requestField);
-            $output[$responseField] = $direction;
-        }
-
-        return $output;
-    }
-
     private function normalizeFilterForItemList(array $filter, bool $useOriginalUfNames): array
     {
         $normalized = [];
@@ -675,9 +647,9 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
         return null;
     }
 
-    private function extractMinId(array $chunk): int
+    private function extractMaxId(array $chunk): int
     {
-        $minId = null;
+        $maxId = null;
         foreach ($chunk as $item) {
             if (!is_array($item)) {
                 continue;
@@ -689,15 +661,15 @@ abstract class AbstractCrmItemService extends AbstractRestService implements
                 continue;
             }
 
-            if ($minId === null || $idAsInt < $minId) {
-                $minId = $idAsInt;
+            if ($maxId === null || $idAsInt > $maxId) {
+                $maxId = $idAsInt;
             }
         }
 
-        if ($minId === null) {
+        if ($maxId === null) {
             throw new RuntimeException('Unable to extract ID cursor from response chunk.');
         }
 
-        return $minId;
+        return $maxId;
     }
 }

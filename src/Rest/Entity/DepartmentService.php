@@ -30,12 +30,9 @@ class DepartmentService extends AbstractRestService implements
      */
     public function all(array $params = []): array
     {
-        $order = $this->normalizeUserOrder($params['order'] ?? ['ID' => 'DESC']);
         $requestBase = $params;
-        unset($requestBase['ID'], $requestBase['id'], $requestBase['start']);
-        if ($order !== []) {
-            $requestBase['order'] = $order;
-        }
+        unset($requestBase['ID'], $requestBase['id'], $requestBase['start'], $requestBase['order'], $requestBase['ORDER']);
+        $requestBase['order'] = ['ID' => 'ASC'];
 
         $items = [];
         $start = 0;
@@ -64,10 +61,6 @@ class DepartmentService extends AbstractRestService implements
             }
 
             $start = $next;
-        }
-
-        if ($order !== []) {
-            $this->sortItemsByOrder($items, $order);
         }
 
         return $items;
@@ -152,7 +145,7 @@ class DepartmentService extends AbstractRestService implements
         }
 
         if (!isset($requestBase['ORDER']) && !isset($requestBase['order'])) {
-            $requestBase['ORDER'] = 'DESC';
+            $requestBase['ORDER'] = 'ASC';
         }
 
         $items = [];

@@ -233,20 +233,15 @@ class TaskService extends AbstractRestService implements
 
     /**
      * Все задачи по фильтру.
-     * Использует быстрый режим start=-1 и курсор по ID (<ID при ORDER ID DESC).
+     * Использует быстрый режим start=-1 и курсор по ID (>ID при ORDER ID ASC).
      *
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/tasks-task-list.html
      */
     public function taskAll(array $params = []): array
     {
         $requestBase = $params;
-        unset($requestBase['start'], $requestBase['START']);
-
-        $requestBase['order'] = is_array($requestBase['order'] ?? null)
-            ? $requestBase['order']
-            : (is_array($requestBase['ORDER'] ?? null) ? $requestBase['ORDER'] : ['ID' => 'DESC']);
-        $requestBase['order']['ID'] = 'DESC';
-        unset($requestBase['ORDER']);
+        unset($requestBase['start'], $requestBase['START'], $requestBase['order'], $requestBase['ORDER']);
+        $requestBase['order'] = ['ID' => 'ASC'];
 
         $requestBase['filter'] = is_array($requestBase['filter'] ?? null)
             ? $requestBase['filter']
@@ -265,7 +260,7 @@ class TaskService extends AbstractRestService implements
 
             $request = $requestBase;
             if (!$hasIdConflicts && $lastId !== null) {
-                $request['filter']['<ID'] = $lastId;
+                $request['filter']['>ID'] = $lastId;
             }
             $request['start'] = -1;
 
@@ -280,12 +275,8 @@ class TaskService extends AbstractRestService implements
                 break;
             }
 
-            $tail = end($chunk);
-            if (!is_array($tail)) {
-                break;
-            }
-            $nextLastId = $this->toPositiveInt($tail['id'] ?? $tail['ID'] ?? null);
-            if ($nextLastId === null || ($lastId !== null && $nextLastId >= $lastId)) {
+            $nextLastId = $this->extractMaxIdFromTaskChunk($chunk);
+            if ($nextLastId === null || ($lastId !== null && $nextLastId <= $lastId)) {
                 break;
             }
 
@@ -293,7 +284,7 @@ class TaskService extends AbstractRestService implements
         }
 
         if ($items !== []) {
-            $this->sortItemsByOrder($items, $requestBase['order']);
+            $this->sortItemsByOrder($items, ['ID' => 'ASC']);
         }
 
         return $items;
@@ -308,6 +299,7 @@ class TaskService extends AbstractRestService implements
     public function templateList(array $params = []): array
     {
         $request = $params;
+        unset($request['order'], $request['ORDER']);
         $request['start'] = -1;
 
         $response = $this->call(self::METHOD_TEMPLATE_LIST, $request);
@@ -1022,7 +1014,7 @@ class TaskService extends AbstractRestService implements
         // task.elapseditem.getlist parses arguments positionally.
         // If FILTER is provided without ORDER, API may treat filter as ORDER and fail.
         if ($filter !== [] && $order === []) {
-            $order = ['ID' => 'DESC'];
+            $order = ['ID' => 'ASC'];
         }
 
         $request = [
@@ -1056,19 +1048,17 @@ class TaskService extends AbstractRestService implements
 
     /**
      * Все записи о затраченном времени по фильтру.
-     * Параметры фильтра/сортировки передавайте в формате task.elapseditem.getlist.
+     * Параметры фильтра передавайте в формате task.elapseditem.getlist.
+     * Сортировка фиксирована: ORDER ID ASC.
      *
      * @see https://apidocs.bitrix24.ru/api-reference/tasks/elapsed-item/task-elapsed-item-get-list.html
      */
     public function elapsedItemAll(array $params = []): array
     {
         $requestBase = $params;
-        unset($requestBase['start'], $requestBase['START']);
-        $requestBase['ORDER'] = is_array($requestBase['ORDER'] ?? null)
-            ? $requestBase['ORDER']
-            : (is_array($requestBase['order'] ?? null) ? $requestBase['order'] : ['ID' => 'DESC']);
-        $requestBase['ORDER']['ID'] = 'DESC';
-        unset($requestBase['order']);
+        unset($requestBase['start'], $requestBase['START'], $requestBase['ORDER'], $requestBase['order']);
+        $requestBase['ORDER'] = ['ID' => 'ASC'];
+
         if (isset($requestBase['filter']) && is_array($requestBase['filter'])) {
             $requestBase['FILTER'] = is_array($requestBase['FILTER'] ?? null)
                 ? array_merge($requestBase['FILTER'], $requestBase['filter'])
@@ -1089,7 +1079,7 @@ class TaskService extends AbstractRestService implements
 
             $request = $requestBase;
             if (!$hasIdConflicts && $lastId !== null) {
-                $request['FILTER']['<ID'] = $lastId;
+                $request['FILTER']['>ID'] = $lastId;
             }
 
             $request = [
@@ -1110,14 +1100,11 @@ class TaskService extends AbstractRestService implements
                 break;
             }
 
-            $tail = end($chunk);
-            if (!is_array($tail)) {
+            $nextLastId = $this->extractMaxIdFromTaskChunk($chunk);
+            if ($nextLastId === null || ($lastId !== null && $nextLastId <= $lastId)) {
                 break;
             }
-            $nextLastId = $this->toPositiveInt($tail['ID'] ?? $tail['id'] ?? null);
-            if ($nextLastId === null || ($lastId !== null && $nextLastId >= $lastId)) {
-                break;
-            }
+
             $lastId = $nextLastId;
         }
 
@@ -1172,7 +1159,7 @@ class TaskService extends AbstractRestService implements
         }
 
         if ($items !== []) {
-            $this->sortItemsByOrder($items, ['ID' => 'DESC']);
+            $this->sortItemsByOrder($items, ['ID' => 'ASC']);
         }
 
         return $items;
@@ -1222,7 +1209,7 @@ class TaskService extends AbstractRestService implements
         }
 
         if ($items !== []) {
-            $this->sortItemsByOrder($items, ['ID' => 'DESC']);
+            $this->sortItemsByOrder($items, ['ID' => 'ASC']);
         }
 
         return $items;
@@ -1607,7 +1594,6 @@ class TaskService extends AbstractRestService implements
         $items = $this->taskAll([
             'filter' => ['GROUP_ID' => $groupId],
             'select' => ['ID'],
-            'order' => ['ID' => 'DESC'],
         ]);
 
         $ids = [];
@@ -1760,6 +1746,28 @@ class TaskService extends AbstractRestService implements
         }
 
         return $parsed;
+    }
+
+    private function extractMaxIdFromTaskChunk(array $chunk): ?int
+    {
+        $maxId = null;
+
+        foreach ($chunk as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $id = $this->toPositiveInt($item['id'] ?? $item['ID'] ?? null);
+            if ($id === null) {
+                continue;
+            }
+
+            if ($maxId === null || $id > $maxId) {
+                $maxId = $id;
+            }
+        }
+
+        return $maxId;
     }
 
     private function normalizeBatchEntityId(mixed $value): int|string|null

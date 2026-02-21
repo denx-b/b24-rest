@@ -41,7 +41,7 @@ class PriceTypeService extends AbstractRestService implements
 
         $request = $params;
         if (!isset($request['order']) || !is_array($request['order']) || $request['order'] === []) {
-            $request['order'] = ['id' => 'DESC'];
+            $request['order'] = ['id' => 'ASC'];
         }
 
         $request['start'] = ($page - 1) * self::PAGE_SIZE;
@@ -74,14 +74,8 @@ class PriceTypeService extends AbstractRestService implements
         $requestBase = $params;
         unset($requestBase['start'], $requestBase['START']);
 
-        $userOrder = $this->normalizeUserOrder($requestBase['order'] ?? null);
-        if ($this->hasIdOrderConflict($userOrder)) {
-            throw new InvalidArgumentException(
-                "Method all() uses internal ID cursor. Remove id/ID from order."
-            );
-        }
-
-        $requestBase['order'] = ['id' => 'DESC'];
+        unset($requestBase['order'], $requestBase['ORDER']);
+        $requestBase['order'] = ['id' => 'ASC'];
         if (array_key_exists('select', $requestBase)) {
             $requestBase['select'] = $this->ensureSelectContainsField($requestBase['select'], 'id');
         }
@@ -106,7 +100,7 @@ class PriceTypeService extends AbstractRestService implements
             $request['start'] = -1;
             $request['filter'] = $userFilter;
             if ($lastId !== null) {
-                $request['filter']['<id'] = $lastId;
+                $request['filter']['>id'] = $lastId;
             }
 
             $response = $this->call(self::METHOD_LIST, $request);
@@ -120,16 +114,12 @@ class PriceTypeService extends AbstractRestService implements
                 break;
             }
 
-            $newLastId = $this->extractMinId($chunk);
-            if ($lastId !== null && $newLastId >= $lastId) {
+            $newLastId = $this->extractMaxId($chunk);
+            if ($lastId !== null && $newLastId <= $lastId) {
                 throw new RuntimeException('The all() cursor did not advance. Stop to avoid infinite loop.');
             }
 
             $lastId = $newLastId;
-        }
-
-        if ($userOrder !== []) {
-            $this->sortItemsByOrder($items, $userOrder);
         }
 
         return $items;
@@ -327,9 +317,9 @@ class PriceTypeService extends AbstractRestService implements
         return $value;
     }
 
-    private function extractMinId(array $chunk): int
+    private function extractMaxId(array $chunk): int
     {
-        $minId = null;
+        $maxId = null;
         foreach ($chunk as $item) {
             if (!is_array($item)) {
                 continue;
@@ -341,15 +331,15 @@ class PriceTypeService extends AbstractRestService implements
                 continue;
             }
 
-            if ($minId === null || $idAsInt < $minId) {
-                $minId = $idAsInt;
+            if ($maxId === null || $idAsInt > $maxId) {
+                $maxId = $idAsInt;
             }
         }
 
-        if ($minId === null) {
+        if ($maxId === null) {
             throw new RuntimeException('Unable to extract ID cursor from response chunk.');
         }
 
-        return $minId;
+        return $maxId;
     }
 }

@@ -42,7 +42,7 @@ class CurrencyService extends AbstractRestService implements
 
         $request = $params;
         $order = $this->normalizeUserOrder($request['order'] ?? null);
-        $request['order'] = ($order !== []) ? $order : ['currency' => 'DESC'];
+        $request['order'] = ($order !== []) ? $order : ['currency' => 'ASC'];
         $request['start'] = ($page - 1) * self::PAGE_SIZE;
 
         $response = $this->call(self::METHOD_LIST, $request);
@@ -73,33 +73,34 @@ class CurrencyService extends AbstractRestService implements
         $requestBase = $params;
         unset($requestBase['start'], $requestBase['START']);
 
-        $order = $this->normalizeUserOrder($requestBase['order'] ?? null);
-        $requestBase['order'] = ($order !== []) ? $order : ['currency' => 'DESC'];
-
-        $request = $requestBase;
-        $request['start'] = -1;
-
-        $response = $this->call(self::METHOD_LIST, $request);
-        $items = $this->normalizeListFromResult($response);
-        $next = $this->extractNextOffset($response);
-        if ($next === null) {
-            return $items;
+        unset($requestBase['order'], $requestBase['ORDER']);
+        $requestBase['order'] = ['ID' => 'ASC'];
+        if (array_key_exists('select', $requestBase)) {
+            $requestBase['select'] = $this->ensureSelectContainsField($requestBase['select'], 'ID');
         }
 
-        $lastStart = -1;
+        $userFilter = is_array($requestBase['filter'] ?? null) ? $requestBase['filter'] : [];
+        if ($this->hasIdCursorConflicts($userFilter)) {
+            throw new InvalidArgumentException(
+                "Method all() manages ID cursor internally. Remove explicit ID-based filter conditions."
+            );
+        }
+
+        $items = [];
+        $lastId = null;
         $iterations = 0;
-        while ($next !== null) {
+        while (true) {
             $iterations++;
             if ($iterations > self::MAX_ALL_ITERATIONS) {
                 throw new RuntimeException('The all() loop exceeded safe iteration limit.');
             }
 
-            if ($next <= $lastStart) {
-                throw new RuntimeException('The all() cursor did not advance. Stop to avoid infinite loop.');
-            }
-
             $request = $requestBase;
-            $request['start'] = $next;
+            $request['start'] = -1;
+            $request['filter'] = $userFilter;
+            if ($lastId !== null) {
+                $request['filter']['>ID'] = $lastId;
+            }
 
             $response = $this->call(self::METHOD_LIST, $request);
             $chunk = $this->normalizeListFromResult($response);
@@ -108,8 +109,16 @@ class CurrencyService extends AbstractRestService implements
             }
 
             $items = array_merge($items, $chunk);
-            $lastStart = $next;
-            $next = $this->extractNextOffset($response);
+            if (count($chunk) < self::PAGE_SIZE) {
+                break;
+            }
+
+            $newLastId = $this->extractMaxId($chunk);
+            if ($lastId !== null && $newLastId <= $lastId) {
+                throw new RuntimeException('The all() cursor did not advance. Stop to avoid infinite loop.');
+            }
+
+            $lastId = $newLastId;
         }
 
         return $items;
@@ -305,5 +314,31 @@ class CurrencyService extends AbstractRestService implements
         }
 
         return $value;
+    }
+
+    private function extractMaxId(array $chunk): int
+    {
+        $maxId = null;
+        foreach ($chunk as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $id = $item['ID'] ?? $item['id'] ?? null;
+            $idAsInt = is_int($id) ? $id : (is_string($id) && ctype_digit($id) ? (int) $id : 0);
+            if ($idAsInt <= 0) {
+                continue;
+            }
+
+            if ($maxId === null || $idAsInt > $maxId) {
+                $maxId = $idAsInt;
+            }
+        }
+
+        if ($maxId === null) {
+            throw new RuntimeException('Unable to extract ID cursor from response chunk.');
+        }
+
+        return $maxId;
     }
 }

@@ -33,7 +33,7 @@ class DealCategoryStageService extends AbstractRestService implements
     {
         $request = $params;
         if (!isset($request['order']) || !is_array($request['order']) || $request['order'] === []) {
-            $request['order'] = ['ID' => 'DESC'];
+            $request['order'] = ['ID' => 'ASC'];
         }
 
         $response = $this->call(self::METHOD_LIST, $request);
