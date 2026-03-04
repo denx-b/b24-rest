@@ -91,13 +91,13 @@ $row = $b24->deals()->productRowUpdate(5001, [
 ```
 
 ```php
-// Получить товарную позицию по ID
-$row = $b24->deals()->productRowGet(5001);
+// Получить список товарных позиций по сделке
+$rows = $b24->deals()->productRowList(359);
 ```
 
 ```php
-// Получить список товарных позиций по сделке
-$rows = $b24->deals()->productRowList(359);
+// Получить товарную позицию по ID
+$row = $b24->deals()->productRowGet(5001);
 ```
 
 ```php
