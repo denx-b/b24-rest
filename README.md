@@ -249,9 +249,12 @@ $b24->requisites()->list([
 ```
 
 ```php
-// Реквизиты компании с адресами и банковскими реквизитами
-$requisitesWithDetails = $b24->requisites()
-    ->listByIdWithAddressAndBank(111);
+/*
+ * Реквизиты компании ВКЛЮЧАЯ:
+ *   адреса, банковские реквизиты и подписи полей
+ */
+$requisitesForUi = $b24->requisites()
+    ->listByIdWithAddressAndBank(111, true);
 ```
 
 ```php
@@ -312,14 +315,12 @@ $presetFields = $b24->requisitePresets()->fieldList(4);
 ```
 
 ```php
-// Список шаблонов сразу с полями и подписями для UI
-$presetsForUi = $b24->requisitePresets()->listWithFieldsAndLabels();
-```
-
-```php
-// Реквизиты компании с адресами, банковскими реквизитами и подписями полей
-$requisitesForUi = $b24->requisites()
-    ->listByIdWithAddressAndBank(111, true);
+/*
+ * Список шаблонов ВКЛЮЧАЯ: 
+ *   поля и подписи для UI
+ */
+$presetsForUi = $b24->requisitePresets()
+    ->listWithFieldsAndLabels();
 ```
 
 ## Задачи
