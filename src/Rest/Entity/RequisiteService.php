@@ -138,6 +138,7 @@ class RequisiteService extends AbstractRestService implements
 
     /**
      * Возвращает подписи полей реквизита (listLabel/formLabel/title) с кешем в рамках процесса.
+     * Удобно для быстрого построения UI-форм без ручного маппинга ключей.
      *
      * @see https://apidocs.bitrix24.ru/api-reference/crm/requisites/universal/crm-requisite-fields.html
      */
@@ -170,6 +171,9 @@ class RequisiteService extends AbstractRestService implements
         return $labels;
     }
 
+    /**
+     * Сбрасывает кеш подписей полей реквизита, накопленный методом fields().
+     */
     public function clearFieldsCache(): void
     {
         self::$cacheLabels = [];
@@ -177,6 +181,7 @@ class RequisiteService extends AbstractRestService implements
 
     /**
      * Возвращает реквизиты компании постранично.
+     * Это sugar над list(): фиксирует ENTITY_TYPE_ID=Company и ENTITY_ID=$companyId.
      *
      * @see https://apidocs.bitrix24.ru/api-reference/crm/requisites/universal/crm-requisite-list.html
      */
@@ -214,6 +219,7 @@ class RequisiteService extends AbstractRestService implements
 
     /**
      * Возвращает список ID реквизитов компании с кешированием в рамках процесса.
+     * Используется как общий источник для listByCompanyId() в адресах и банковских реквизитах.
      */
     public function getCompanyRequisiteIds(int|string $companyId): array
     {
@@ -232,6 +238,7 @@ class RequisiteService extends AbstractRestService implements
     /**
      * Возвращает реквизиты компании с вложенными списками адресов и банковских реквизитов.
      * При $includeLabels=true добавляет карты подписей полей для всех секций.
+     * Метод предназначен для сценариев UI, где нужны данные и структура формы в одном ответе.
      */
     public function listByIdWithAddressAndBank(int|string $companyId, bool $includeLabels = false): array
     {
@@ -291,6 +298,10 @@ class RequisiteService extends AbstractRestService implements
         ];
     }
 
+    /**
+     * Сбрасывает кеш companyId=>requisiteIds:
+     * без аргумента очищает всё, с аргументом очищает только одну компанию.
+     */
     public function clearCompanyIdsCache(?int $companyId = null): void
     {
         if ($companyId === null) {

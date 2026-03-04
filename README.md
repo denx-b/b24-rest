@@ -264,6 +264,64 @@ $addresses = $b24->addresses()->listByCompanyId(111);
 $bankDetails = $b24->bankDetails()->listByCompanyId(111);
 ```
 
+## Шаблоны реквизитов
+
+```php
+// Список шаблонов реквизитов
+$presets = $b24->requisitePresets()->list();
+```
+
+```php
+// Шаблон реквизитов по ID
+$preset = $b24->requisitePresets()->getById(4);
+```
+
+```php
+// Создать шаблон реквизитов
+$createdPreset = $b24->requisitePresets()->add([
+    'NAME' => 'Новый шаблон',
+    'COUNTRY_ID' => 1,
+]);
+```
+
+```php
+// Обновить шаблон реквизитов
+$updatedPreset = $b24->requisitePresets()->update(4, [
+    'NAME' => 'ИП v2',
+]);
+```
+
+```php
+// Удалить шаблон реквизитов
+$deletedPreset = $b24->requisitePresets()->delete(10);
+```
+
+```php
+// Список стран для шаблонов реквизитов
+$countries = $b24->requisitePresets()->countries();
+```
+
+```php
+// Описание полей шаблона реквизитов
+$presetFieldsMeta = $b24->requisitePresets()->getFields();
+```
+
+```php
+// Поля конкретного шаблона реквизитов
+$presetFields = $b24->requisitePresets()->fieldList(4);
+```
+
+```php
+// Список шаблонов сразу с полями и подписями для UI
+$presetsForUi = $b24->requisitePresets()->listWithFieldsAndLabels();
+```
+
+```php
+// Реквизиты компании с адресами, банковскими реквизитами и подписями полей
+$requisitesForUi = $b24->requisites()
+    ->listByIdWithAddressAndBank(111, true);
+```
+
 ## Задачи
 
 ```php

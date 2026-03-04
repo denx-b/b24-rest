@@ -128,6 +128,7 @@ class BankDetailService extends AbstractRestService implements
 
     /**
      * Возвращает все банковские реквизиты компании.
+     * Метод автоматически находит реквизиты компании и объединяет их банковские реквизиты в один список.
      */
     public function listByCompanyId(int|string $companyId, array $params = []): array
     {

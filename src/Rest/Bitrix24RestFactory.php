@@ -17,6 +17,7 @@ use B24Rest\Rest\Entity\LeadService;
 use B24Rest\Rest\Entity\MeasureService;
 use B24Rest\Rest\Entity\PriceTypeService;
 use B24Rest\Rest\Entity\RequisiteService;
+use B24Rest\Rest\Entity\RequisitePresetService;
 use B24Rest\Rest\Entity\QuoteService;
 use B24Rest\Rest\Entity\SmartProcessItemService;
 use B24Rest\Rest\Entity\TaskService;
@@ -37,6 +38,7 @@ class Bitrix24RestFactory
     private ?MeasureService $measureService = null;
     private ?CurrencyService $currencyService = null;
     private ?RequisiteService $requisiteService = null;
+    private ?RequisitePresetService $requisitePresetService = null;
     private ?AddressService $addressService = null;
     private ?BankDetailService $bankDetailService = null;
     /** @var array<int, SmartProcessItemService> */
@@ -179,6 +181,15 @@ class Bitrix24RestFactory
         }
 
         return $this->requisiteService;
+    }
+
+    public function requisitePresets(): RequisitePresetService
+    {
+        if ($this->requisitePresetService === null) {
+            $this->requisitePresetService = new RequisitePresetService();
+        }
+
+        return $this->requisitePresetService;
     }
 
     public function addresses(): AddressService

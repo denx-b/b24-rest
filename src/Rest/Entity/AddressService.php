@@ -101,6 +101,7 @@ class AddressService extends AbstractRestService implements ListOperationInterfa
 
     /**
      * Возвращает все адреса реквизитов компании.
+     * Метод автоматически находит реквизиты компании и агрегирует адреса по каждому из них.
      */
     public function listByCompanyId(int|string $companyId, array $params = []): array
     {
@@ -142,6 +143,10 @@ class AddressService extends AbstractRestService implements ListOperationInterfa
         return $result;
     }
 
+    /**
+     * Формирует краткую строку адреса для UI-вывода.
+     * Результат добавляется в list() как поле ADDRESS_SHORT.
+     */
     protected static function formatAddressShort(array $address): string
     {
         $availableFields = [
