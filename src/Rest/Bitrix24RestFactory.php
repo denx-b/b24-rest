@@ -3,6 +3,7 @@
 namespace B24Rest\Rest;
 
 use B24Rest\Bridge\Bitrix24Gateway;
+use B24Rest\Rest\Entity\BankDetailService;
 use B24Rest\Rest\Entity\CompanyService;
 use B24Rest\Rest\Entity\ContactService;
 use B24Rest\Rest\Entity\CurrencyService;
@@ -37,6 +38,7 @@ class Bitrix24RestFactory
     private ?CurrencyService $currencyService = null;
     private ?RequisiteService $requisiteService = null;
     private ?AddressService $addressService = null;
+    private ?BankDetailService $bankDetailService = null;
     /** @var array<int, SmartProcessItemService> */
     private array $smartProcessItemServices = [];
 
@@ -186,6 +188,15 @@ class Bitrix24RestFactory
         }
 
         return $this->addressService;
+    }
+
+    public function bankDetails(): BankDetailService
+    {
+        if ($this->bankDetailService === null) {
+            $this->bankDetailService = new BankDetailService();
+        }
+
+        return $this->bankDetailService;
     }
 
     public function smartItems(int $entityTypeId): SmartProcessItemService
