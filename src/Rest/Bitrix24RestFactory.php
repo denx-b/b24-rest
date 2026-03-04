@@ -6,6 +6,7 @@ use B24Rest\Bridge\Bitrix24Gateway;
 use B24Rest\Rest\Entity\CompanyService;
 use B24Rest\Rest\Entity\ContactService;
 use B24Rest\Rest\Entity\CurrencyService;
+use B24Rest\Rest\Entity\AddressService;
 use B24Rest\Rest\Entity\DealCategoryService;
 use B24Rest\Rest\Entity\DealCategoryStageService;
 use B24Rest\Rest\Entity\DealService;
@@ -35,6 +36,7 @@ class Bitrix24RestFactory
     private ?MeasureService $measureService = null;
     private ?CurrencyService $currencyService = null;
     private ?RequisiteService $requisiteService = null;
+    private ?AddressService $addressService = null;
     /** @var array<int, SmartProcessItemService> */
     private array $smartProcessItemServices = [];
 
@@ -175,6 +177,15 @@ class Bitrix24RestFactory
         }
 
         return $this->requisiteService;
+    }
+
+    public function addresses(): AddressService
+    {
+        if ($this->addressService === null) {
+            $this->addressService = new AddressService();
+        }
+
+        return $this->addressService;
     }
 
     public function smartItems(int $entityTypeId): SmartProcessItemService
