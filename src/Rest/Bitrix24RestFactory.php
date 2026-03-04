@@ -14,6 +14,7 @@ use B24Rest\Rest\Entity\InvoiceService;
 use B24Rest\Rest\Entity\LeadService;
 use B24Rest\Rest\Entity\MeasureService;
 use B24Rest\Rest\Entity\PriceTypeService;
+use B24Rest\Rest\Entity\RequisiteService;
 use B24Rest\Rest\Entity\QuoteService;
 use B24Rest\Rest\Entity\SmartProcessItemService;
 use B24Rest\Rest\Entity\TaskService;
@@ -33,6 +34,7 @@ class Bitrix24RestFactory
     private ?PriceTypeService $priceTypeService = null;
     private ?MeasureService $measureService = null;
     private ?CurrencyService $currencyService = null;
+    private ?RequisiteService $requisiteService = null;
     /** @var array<int, SmartProcessItemService> */
     private array $smartProcessItemServices = [];
 
@@ -164,6 +166,15 @@ class Bitrix24RestFactory
         }
 
         return $this->currencyService;
+    }
+
+    public function requisites(): RequisiteService
+    {
+        if ($this->requisiteService === null) {
+            $this->requisiteService = new RequisiteService();
+        }
+
+        return $this->requisiteService;
     }
 
     public function smartItems(int $entityTypeId): SmartProcessItemService
