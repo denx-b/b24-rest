@@ -231,13 +231,29 @@ class RequisiteService extends AbstractRestService implements
 
     /**
      * Возвращает реквизиты компании с вложенными списками адресов и банковских реквизитов.
+     * При $includeLabels=true добавляет карты подписей полей для всех секций.
      */
-    public function listByIdWithAddressAndBank(int|string $companyId): array
+    public function listByIdWithAddressAndBank(int|string $companyId, bool $includeLabels = false): array
     {
         $normalizedCompanyId = $this->normalizePositiveId($companyId, 'Company ID');
         $items = $this->fetchAllCompanyRequisites($normalizedCompanyId);
         if ($items === []) {
-            return [];
+            if (!$includeLabels) {
+                return [];
+            }
+
+            $factory = new Bitrix24RestFactory();
+            $addressService = $factory->addresses();
+            $bankDetailService = $factory->bankDetails();
+
+            return [
+                'items' => [],
+                'labels' => [
+                    'requisite' => $this->fields(),
+                    'address' => $this->extractFieldLabels($addressService->getFields()),
+                    'bankDetail' => $this->extractFieldLabels($bankDetailService->getFields()),
+                ],
+            ];
         }
 
         $factory = new Bitrix24RestFactory();
@@ -261,7 +277,18 @@ class RequisiteService extends AbstractRestService implements
         }
         unset($item);
 
-        return $items;
+        if (!$includeLabels) {
+            return $items;
+        }
+
+        return [
+            'items' => $items,
+            'labels' => [
+                'requisite' => $this->fields(),
+                'address' => $this->extractFieldLabels($addressService->getFields()),
+                'bankDetail' => $this->extractFieldLabels($bankDetailService->getFields()),
+            ],
+        ];
     }
 
     public function clearCompanyIdsCache(?int $companyId = null): void
@@ -389,5 +416,28 @@ class RequisiteService extends AbstractRestService implements
         }
 
         return null;
+    }
+
+    private function extractFieldLabels(array $fields): array
+    {
+        if ($fields === []) {
+            return [];
+        }
+
+        $labels = [];
+        foreach ($fields as $fieldCode => $fieldMeta) {
+            if (!is_array($fieldMeta)) {
+                continue;
+            }
+
+            $label = $fieldMeta['listLabel'] ?? ($fieldMeta['formLabel'] ?? ($fieldMeta['title'] ?? null));
+            if (!is_string($label) || $label === '') {
+                continue;
+            }
+
+            $labels[(string) $fieldCode] = $label;
+        }
+
+        return $labels;
     }
 }
