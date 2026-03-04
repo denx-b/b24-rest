@@ -3,11 +3,14 @@
 namespace B24Rest\Rest\Entity;
 
 use B24Rest\Rest\AbstractRestService;
+use B24Rest\Rest\Bitrix24RestFactory;
 use B24Rest\Rest\Contract\AddOperationInterface;
 use B24Rest\Rest\Contract\DeleteOperationInterface;
 use B24Rest\Rest\Contract\GetByIdOperationInterface;
 use B24Rest\Rest\Contract\ListOperationInterface;
 use B24Rest\Rest\Contract\UpdateOperationInterface;
+use InvalidArgumentException;
+use RuntimeException;
 
 class RequisiteService extends AbstractRestService implements
     ListOperationInterface,
@@ -16,6 +19,8 @@ class RequisiteService extends AbstractRestService implements
     UpdateOperationInterface,
     DeleteOperationInterface
 {
+    private const COMPANY_ENTITY_TYPE_ID = 4;
+    private const MAX_LIST_ITERATIONS = 100000;
     private const METHOD_ADD = 'crm.requisite.add';
     private const METHOD_UPDATE = 'crm.requisite.update';
     private const METHOD_GET = 'crm.requisite.get';
@@ -25,6 +30,8 @@ class RequisiteService extends AbstractRestService implements
 
     /** @var array<string, string> */
     private static array $cacheLabels = [];
+    /** @var array<string, list<int>> */
+    private static array $cacheCompanyRequisiteIds = [];
 
     /**
      * @see https://apidocs.bitrix24.ru/api-reference/crm/requisites/universal/crm-requisite-list.html
@@ -69,6 +76,7 @@ class RequisiteService extends AbstractRestService implements
 
         $response = $this->call(self::METHOD_ADD, $request);
         $result = $response['result'] ?? null;
+        $this->invalidateCompanyCacheByFields($fields);
 
         if (is_scalar($result) && $result !== '') {
             return ['id' => (string) $result];
@@ -94,6 +102,7 @@ class RequisiteService extends AbstractRestService implements
         $request['fields'] = $fields;
 
         $response = $this->call(self::METHOD_UPDATE, $request);
+        $this->clearCompanyIdsCache();
         return $this->normalizeBooleanResult($response['result'] ?? null);
     }
 
@@ -113,6 +122,7 @@ class RequisiteService extends AbstractRestService implements
     public function delete(int|string $id): bool
     {
         $response = $this->call(self::METHOD_DELETE, ['id' => $id]);
+        $this->clearCompanyIdsCache();
         return $this->normalizeBooleanResult($response['result'] ?? null);
     }
 
@@ -164,5 +174,220 @@ class RequisiteService extends AbstractRestService implements
     {
         self::$cacheLabels = [];
     }
-}
 
+    /**
+     * Возвращает реквизиты компании постранично.
+     *
+     * @see https://apidocs.bitrix24.ru/api-reference/crm/requisites/universal/crm-requisite-list.html
+     */
+    public function listByCompanyId(int|string $companyId, array $params = [], int $page = 1): array
+    {
+        $normalizedCompanyId = $this->normalizePositiveId($companyId, 'Company ID');
+
+        $request = $params;
+        $filter = [];
+        if (isset($request['FILTER']) && is_array($request['FILTER'])) {
+            $filter = $request['FILTER'];
+            unset($request['FILTER']);
+        }
+
+        if (isset($request['filter']) && is_array($request['filter'])) {
+            $filter = array_merge($filter, $request['filter']);
+        }
+
+        $existingEntityTypeId = $this->toPositiveInt($filter['ENTITY_TYPE_ID'] ?? null);
+        if ($existingEntityTypeId !== null && $existingEntityTypeId !== self::COMPANY_ENTITY_TYPE_ID) {
+            throw new InvalidArgumentException('Filter ENTITY_TYPE_ID conflicts with company requisites entity type.');
+        }
+
+        $existingEntityId = $this->toPositiveInt($filter['ENTITY_ID'] ?? null);
+        if ($existingEntityId !== null && $existingEntityId !== $normalizedCompanyId) {
+            throw new InvalidArgumentException('Filter ENTITY_ID conflicts with target company ID.');
+        }
+
+        $filter['ENTITY_TYPE_ID'] = self::COMPANY_ENTITY_TYPE_ID;
+        $filter['ENTITY_ID'] = $normalizedCompanyId;
+
+        $request['filter'] = $filter;
+        return $this->list($request, $page);
+    }
+
+    /**
+     * Возвращает список ID реквизитов компании с кешированием в рамках процесса.
+     */
+    public function getCompanyRequisiteIds(int|string $companyId): array
+    {
+        $normalizedCompanyId = (string) $this->normalizePositiveId($companyId, 'Company ID');
+        if (isset(self::$cacheCompanyRequisiteIds[$normalizedCompanyId])) {
+            return self::$cacheCompanyRequisiteIds[$normalizedCompanyId];
+        }
+
+        $items = $this->fetchAllCompanyRequisites((int) $normalizedCompanyId);
+        $ids = $this->extractRequisiteIds($items);
+        self::$cacheCompanyRequisiteIds[$normalizedCompanyId] = $ids;
+
+        return $ids;
+    }
+
+    /**
+     * Возвращает реквизиты компании с вложенными списками адресов и банковских реквизитов.
+     */
+    public function listByIdWithAddressAndBank(int|string $companyId): array
+    {
+        $normalizedCompanyId = $this->normalizePositiveId($companyId, 'Company ID');
+        $items = $this->fetchAllCompanyRequisites($normalizedCompanyId);
+        if ($items === []) {
+            return [];
+        }
+
+        $factory = new Bitrix24RestFactory();
+        $addressService = $factory->addresses();
+        $bankDetailService = $factory->bankDetails();
+
+        $addresses = $addressService->listByCompanyId($normalizedCompanyId);
+        $bankDetails = $bankDetailService->listByCompanyId($normalizedCompanyId);
+
+        $addressesByRequisiteId = $this->groupByRequisiteId($addresses);
+        $bankDetailsByRequisiteId = $this->groupByRequisiteId($bankDetails);
+
+        foreach ($items as &$item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $requisiteId = (string) ($item['ID'] ?? $item['id'] ?? '');
+            $item['ADDRESSES'] = $addressesByRequisiteId[$requisiteId] ?? [];
+            $item['BANK_DETAILS'] = $bankDetailsByRequisiteId[$requisiteId] ?? [];
+        }
+        unset($item);
+
+        return $items;
+    }
+
+    public function clearCompanyIdsCache(?int $companyId = null): void
+    {
+        if ($companyId === null) {
+            self::$cacheCompanyRequisiteIds = [];
+            return;
+        }
+
+        unset(self::$cacheCompanyRequisiteIds[(string) $companyId]);
+    }
+
+    private function fetchAllCompanyRequisites(int $companyId): array
+    {
+        $page = 1;
+        $items = [];
+        $iterations = 0;
+
+        while (true) {
+            $iterations++;
+            if ($iterations > self::MAX_LIST_ITERATIONS) {
+                throw new RuntimeException('The listByCompanyId() loop exceeded safe iteration limit.');
+            }
+
+            $chunkResult = $this->listByCompanyId($companyId, ['order' => ['ID' => 'ASC']], $page);
+            $chunk = is_array($chunkResult['items'] ?? null) ? $chunkResult['items'] : [];
+            if ($chunk !== []) {
+                $items = array_merge($items, $chunk);
+            }
+
+            $hasNext = (bool) ($chunkResult['pagination']['hasNext'] ?? false);
+            if (!$hasNext) {
+                break;
+            }
+
+            $page++;
+        }
+
+        self::$cacheCompanyRequisiteIds[(string) $companyId] = $this->extractRequisiteIds($items);
+        return $items;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items
+     * @return array<string, list<array<string,mixed>>>
+     */
+    private function groupByRequisiteId(array $items): array
+    {
+        $result = [];
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $requisiteId = (string) ($item['ENTITY_ID'] ?? $item['entityId'] ?? '');
+            if ($requisiteId === '') {
+                continue;
+            }
+
+            if (!isset($result[$requisiteId])) {
+                $result[$requisiteId] = [];
+            }
+
+            $result[$requisiteId][] = $item;
+        }
+
+        return $result;
+    }
+
+    /**
+     * @param list<array<string,mixed>> $items
+     * @return list<int>
+     */
+    private function extractRequisiteIds(array $items): array
+    {
+        $ids = [];
+        $seen = [];
+
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+
+            $id = $this->toPositiveInt($item['ID'] ?? $item['id'] ?? null);
+            if ($id === null || isset($seen[$id])) {
+                continue;
+            }
+
+            $seen[$id] = true;
+            $ids[] = $id;
+        }
+
+        sort($ids);
+        return $ids;
+    }
+
+    private function invalidateCompanyCacheByFields(array $fields): void
+    {
+        $entityTypeId = $this->toPositiveInt($fields['ENTITY_TYPE_ID'] ?? null);
+        $entityId = $this->toPositiveInt($fields['ENTITY_ID'] ?? null);
+        if ($entityTypeId === self::COMPANY_ENTITY_TYPE_ID && $entityId !== null) {
+            $this->clearCompanyIdsCache($entityId);
+        }
+    }
+
+    private function normalizePositiveId(int|string $value, string $label): int
+    {
+        $parsed = $this->toPositiveInt($value);
+        if ($parsed === null) {
+            throw new InvalidArgumentException($label . ' must be a positive integer.');
+        }
+
+        return $parsed;
+    }
+
+    private function toPositiveInt(mixed $value): ?int
+    {
+        if (is_int($value) && $value > 0) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            $parsed = (int) $value;
+            return ($parsed > 0) ? $parsed : null;
+        }
+
+        return null;
+    }
+}

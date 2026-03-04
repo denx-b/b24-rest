@@ -235,6 +235,35 @@ $smartItems = $b24->smartItems(1086)->list();
 
 `contacts()` и `companies()` поддерживают только `crm.item.*` (без `productRow*`).
 
+## Реквизиты, адреса и банковские реквизиты
+
+```php
+// Реквизиты компании
+$requisitesPage = $b24->requisites()
+    ->listByCompanyId(111);
+
+// эквивалентно:
+$b24->requisites()->list([
+    'filter' => ['ENTITY_TYPE_ID' => 4, 'ENTITY_ID' => 111]
+]);
+```
+
+```php
+// Реквизиты компании с адресами и банковскими реквизитами
+$requisitesWithDetails = $b24->requisites()
+    ->listByIdWithAddressAndBank(111);
+```
+
+```php
+// Только адреса компании (по всем её реквизитам)
+$addresses = $b24->addresses()->listByCompanyId(111);
+```
+
+```php
+// Только банковские реквизиты компании (по всем её реквизитам)
+$bankDetails = $b24->bankDetails()->listByCompanyId(111);
+```
+
 ## Задачи
 
 ```php
